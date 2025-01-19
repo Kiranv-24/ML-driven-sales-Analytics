@@ -4,7 +4,7 @@ const connectDB = async () => {
   try {
     console.log("Attempting to connect to MongoDB...");
     const conn = await mongoose.connect(
-      "mongodb://localhost:27017/feedback_system",
+      "mongodb+srv://kiranv242004:s7r6Hv3l5xqVWm00@cluster0.sw04u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
       {
         useNewUrlParser: true,
         useUnifiedTopology: true,

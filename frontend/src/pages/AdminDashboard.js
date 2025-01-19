@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid,
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableRow,
-  Card,
-  CardContent,
-  Rating,
-  Button
-} from '@mui/material';
+import { Box, Typography, Paper, Grid, Table, TableBody, TableCell, TableHead, TableRow, Rating, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/api';
 
@@ -74,117 +60,103 @@ const AdminDashboard = () => {
   }, [fetchDashboardStats]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Admin Dashboard
-      </Typography>
-
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Products
-              </Typography>
-              <Typography variant="h5">
-                {stats.totalProducts}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Reviews
-              </Typography>
-              <Typography variant="h5">
-                {stats.totalReviews}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Products Table */}
-      <Paper sx={{ mb: 3 }}>
-        <Typography variant="h6" sx={{ p: 2 }}>
-          Product Statistics
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="max-w-7xl mx-auto">
+        <Typography variant="h3" className="text-gray-900 font-bold mb-8">
+          Admin Dashboard
         </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product Name</TableCell>
-              <TableCell>Number of Reviews</TableCell>
-              <TableCell>Average Rating</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {stats.products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>{product.reviewCount}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Rating 
-                      value={product.averageRating} 
-                      precision={0.1} 
-                      readOnly 
-                    />
-                    <Typography sx={{ ml: 1 }}>
-                      ({product.averageRating.toFixed(1)})
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>${product.price}</TableCell>
-                <TableCell>
-                  <Button 
-                    variant="contained" 
-                    onClick={() => handleViewDetails(product.id)}
-                  >
-                    View Details
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
 
-      {/* Recent Reviews Table */}
-      <Paper>
-        <Typography variant="h6" sx={{ p: 2 }}>
-          Recent Reviews
-        </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>Rating</TableCell>
-              <TableCell>Feedback</TableCell>
-              <TableCell>Date</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {stats.recentReviews.map((review) => (
-              <TableRow key={review.id}>
-                <TableCell>{review.product_name}</TableCell>
-                <TableCell>
-                  <Rating value={review.rating} readOnly />
-                </TableCell>
-                <TableCell>{review.feedback}</TableCell>
-                <TableCell>
-                  {new Date(review.created_at).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
-    </Box>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Paper elevation={4} className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-xl shadow-xl p-6 text-white hover:scale-105 transition-all duration-300">
+            <Typography variant="body2" className="text-blue-100 font-semibold mb-2">Total Products</Typography>
+            <Typography variant="h4" className="font-bold">{stats.totalProducts}</Typography>
+          </Paper>
+          <Paper elevation={4} className="bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-xl shadow-xl p-6 text-white hover:scale-105 transition-all duration-300">
+            <Typography variant="body2" className="text-indigo-100 font-semibold mb-2">Total Reviews</Typography>
+            <Typography variant="h4" className="font-bold">{stats.totalReviews}</Typography>
+          </Paper>
+        </div>
+
+        {/* Products Table */}
+        <div className="bg-white rounded-xl shadow-xl mb-8 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <Typography variant="h6" className="text-gray-900 font-semibold">Product Statistics</Typography>
+          </div>
+          <div className="overflow-x-auto">
+            <Table className="w-full table-auto">
+              <TableHead className="bg-gray-100">
+                <TableRow>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Product Name</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Reviews</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Rating</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Price</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody className="divide-y divide-gray-200">
+                {stats.products.map((product) => (
+                  <TableRow key={product.id} className="hover:bg-gray-50 transition-colors duration-200">
+                    <TableCell className="px-6 py-4 text-sm text-gray-800">{product.name}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-gray-600">{product.reviewCount}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Rating value={product.averageRating} precision={0.1} readOnly size="small" />
+                        <Typography variant="body2" className="text-gray-600">({product.averageRating.toFixed(1)})</Typography>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-gray-600">${product.price}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <Button 
+                        onClick={() => handleViewDetails(product.id)}
+                        variant="contained"
+                        color="primary"
+                        className="rounded-lg text-sm font-medium transition-all duration-300"
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Recent Reviews */}
+        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <Typography variant="h6" className="text-gray-900 font-semibold">Recent Reviews</Typography>
+          </div>
+          <div className="overflow-x-auto">
+            <Table className="w-full table-auto">
+              <TableHead className="bg-gray-100">
+                <TableRow>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Product</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Rating</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Feedback</TableCell>
+                  <TableCell className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Date</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody className="divide-y divide-gray-200">
+                {stats.recentReviews.map((review) => (
+                  <TableRow key={review.id} className="hover:bg-gray-50 transition-colors duration-200">
+                    <TableCell className="px-6 py-4 text-sm text-gray-800">{review.product_name}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <Rating value={review.rating} readOnly size="small" />
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-gray-600">{review.feedback}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-gray-600">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
