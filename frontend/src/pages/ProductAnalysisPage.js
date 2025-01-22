@@ -285,7 +285,7 @@ const ProductAnalysisPage = () => {
       >
         {loading.demand ? "Analyzing..." : "Demand Analysis"}
       </Button>
-      <Button
+      {/* <Button
         variant={activeTab === 2 ? "contained" : "outlined"}
         color="warning"
         onClick={() => {
@@ -296,7 +296,7 @@ const ProductAnalysisPage = () => {
         startIcon={loading.stockout && <CircularProgress size={20} />}
       >
         {loading.stockout ? "Predicting..." : "Stockout Prediction"}
-      </Button>
+      </Button> */}
     </Box>
   );
 

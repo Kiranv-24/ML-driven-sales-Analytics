@@ -48,23 +48,26 @@ class ProductImprovementSystem:
     def analyze_reviews(self, reviews):
         combined_reviews = " ".join(reviews)
         prompt = f"""
-        Analyze these customer reviews and provide:
-        1. Key areas needing improvement (Main points only).
-        2. Short and direct suggestions for each area (Concise and to-the-point).
-        3. A priority level for each suggestion (High/Medium/Low).
+        You are an AI product analyst. Based on the following customer reviews, identify the key issues with the product and provide actionable improvement suggestions. For each issue, also give a priority level.
+
+        Your response should be structured as follows:
+        1. **Key Issue #1**: (brief description of the problem)
+            - **Suggestion**: (specific action or improvement)
+            - **Priority**: (High, Medium, Low)
+        2. **Key Issue #2**: (brief description of the problem)
+            - **Suggestion**: (specific action or improvement)
+            - **Priority**: (High, Medium, Low)
+        3. Continue listing more issues and suggestions if applicable.
+
+        Please ensure the following:
+        - Focus on the **most common** and **important** issues across reviews.
+        - Make suggestions **specific**, **realistic**, and **easy to implement**.
+        - Ensure that the priority levels reflect the **urgency** and **impact** of each issue.
 
         Reviews: {combined_reviews}
-
-        Please format the response as:
-        Area 1:
-        - Suggestion: (Brief and clear)
-        - Priority: High
-
-        Area 2:
-        - Suggestion: (Brief and clear)
-        - Priority: Medium
         """
         return self.get_suggestion_from_api(prompt)
+
 
 
     def get_suggestion_from_api(self, prompt):

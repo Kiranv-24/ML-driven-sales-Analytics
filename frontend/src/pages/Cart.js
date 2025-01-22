@@ -69,7 +69,7 @@ const Cart = () => {
                   <Grid item xs={12} sm={6}>
                     <Typography variant="h6">{item.name}</Typography>
                     <Typography color="primary" variant="h6">
-                      ${item.price}
+                    ₹{item.price}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={3}>
@@ -92,7 +92,7 @@ const Cart = () => {
             <Divider />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
               <Typography variant="h5">Total:</Typography>
-              <Typography variant="h5">${calculateTotal().toFixed(2)}</Typography>
+              <Typography variant="h5">₹{calculateTotal().toFixed(2)}</Typography>
             </Box>
           </Box>
 

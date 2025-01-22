@@ -63,12 +63,35 @@ const Checkout = () => {
     }));
   };
 
+  const validateShippingInfo = () => {
+    const { shippingAddress, phoneNumber } = formData;
+
+    // Basic check for empty fields
+    if (!shippingAddress.trim() || !phoneNumber.trim()) {
+      setError("Please fill in all fields");
+      return false;
+    }
+
+    // Validate phone number (10 digits)
+    if (!/^\d{10}$/.test(phoneNumber)) {
+      setError("Please enter a valid 10-digit phone number");
+      return false;
+    }
+
+    // Validate shipping address format (door number, street, city, and optional postal code)
+    const addressRegex = /^(?=.*\d)(?=.*[a-zA-Z])(.+)$/;
+    if (!addressRegex.test(shippingAddress)) {
+      setError("Shipping address must contain door number, street, and city");
+      return false;
+    }
+
+    setError("");
+    return true;
+  };
+
   const handleNext = () => {
     if (activeStep === 0) {
-      if (!formData.shippingAddress.trim() || !formData.phoneNumber.trim()) {
-        setError("Please fill in all fields");
-        return;
-      }
+      if (!validateShippingInfo()) return; // Only proceed if valid
     }
     setActiveStep((prevStep) => prevStep + 1);
   };
@@ -79,7 +102,6 @@ const Checkout = () => {
 
   const handlePaymentSuccess = async (paymentIntent) => {
     try {
-      console.log("hi");
       const token = localStorage.getItem("token");
       await axios.post(
         "http://localhost:5000/api/orders",
@@ -139,6 +161,7 @@ const Checkout = () => {
               rows={3}
               required
               sx={{ mb: 2 }}
+              helperText="Include door number, street, city, and postal code (if applicable)"
             />
 
             <TextField
@@ -158,7 +181,7 @@ const Checkout = () => {
         ) : (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Total Amount: ${cartTotal.toFixed(2)}
+              Total Amount: ₹{cartTotal.toFixed(2)}
             </Typography>
             <PaymentWrapper
               amount={cartTotal}

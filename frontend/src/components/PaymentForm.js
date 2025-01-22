@@ -101,7 +101,7 @@ const PaymentForm = ({
       </Typography>
 
       <Typography variant="body1">
-        Total Amount: ${amount.toFixed(2)}
+        Total Amount: ₹{amount.toFixed(2)}
       </Typography>
 
       {error && (

@@ -263,7 +263,7 @@ const getPriorityFromSuggestion = (suggestion) => {
 
         {viewMode === "problems" && (
           <>
-            {/* Problem Categories Treemap */}
+            {/* Problem Categories Treemap
             <Grid item xs={12} md={6}>
               <Fade in={viewMode === "problems"}>
                 <Paper
@@ -290,7 +290,7 @@ const getPriorityFromSuggestion = (suggestion) => {
                   </ResponsiveContainer>
                 </Paper>
               </Fade>
-            </Grid>
+            </Grid> */}
 
             {/* Problem Impact Radar */}
             <Grid item xs={12} md={6}>

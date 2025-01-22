@@ -70,73 +70,92 @@ const AdminOrders = () => {
   };
 
   if (loading) return (
-    <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px" style={{ backgroundColor: '#E8E8E8' }}>
       <CircularProgress />
     </Box>
   );
   
   if (error) return (
-    <Container>
-      <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
-    </Container>
+    <Box style={{ backgroundColor: '#E8E8E8', minHeight: '100vh' }}>
+      <Container>
+        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+      </Container>
+    </Box>
   );
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Order Management
-        </Typography>
+    <Box style={{ backgroundColor: '#E8E8E8', minHeight: '100vh', paddingTop: '20px' }}>
+      <Typography 
+  variant="h3" 
+  component="h1" 
+  className="text-[#0056D2] font-bold mb-8 macondo-regular"
+  style={{ fontFamily: 'Macondo, serif' }} 
+  gutterBottom 
+  sx={{ 
+    fontWeight: 600, 
+    color: '#333',
+    paddingLeft:8    
+  }}
+>
+  Orders
+</Typography>
 
-        {orders.length === 0 ? (
-          <Alert severity="info">No orders found</Alert>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Order ID</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>User ID</TableCell>
-                  <TableCell>Products</TableCell>
-                  <TableCell>Total Amount</TableCell>
-                  <TableCell>Shipping Address</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>{order.id}</TableCell>
-                    <TableCell>{formatDate(order.created_at)}</TableCell>
-                    <TableCell>{order.user_id}</TableCell>
-                    <TableCell>
-                      {order.items && order.items.map((item, index) => (
-                        <Box key={index} sx={{ mb: 1 }}>
-                          {item.product_name} (x{item.quantity})
-                        </Box>
-                      ))}
-                    </TableCell>
-                    <TableCell>${order.total_amount}</TableCell>
-                    <TableCell>{order.shipping_address}</TableCell>
-                    <TableCell>{order.phone_number}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={order.status} 
-                        color={getStatusColor(order.status)}
-                        size="small"
-                      />
-                    </TableCell>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            Order Management
+          </Typography>
+
+          {orders.length === 0 ? (
+            <Alert severity="info">No orders found</Alert>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Order ID</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>User ID</TableCell>
+                    <TableCell>Products</TableCell>
+                    <TableCell>Total Amount</TableCell>
+                    <TableCell>Shipping Address</TableCell>
+                    <TableCell>Phone</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Paper>
-    </Container>
+                </TableHead>
+                <TableBody>
+                  {orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>{order.id}</TableCell>
+                      <TableCell>{formatDate(order.created_at)}</TableCell>
+                      <TableCell>{order.user_id}</TableCell>
+                      <TableCell>
+                        {order.items && order.items.map((item, index) => (
+                          <Box key={index} sx={{ mb: 1 }}>
+                            {item.product_name} (x{item.quantity})
+                          </Box>
+                        ))}
+                      </TableCell>
+                      <TableCell>₹{order.total_amount}</TableCell>
+                      <TableCell>{order.shipping_address}</TableCell>
+                      <TableCell>{order.phone_number}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={order.status} 
+                          color={getStatusColor(order.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 
-export default AdminOrders; 
+export default AdminOrders;

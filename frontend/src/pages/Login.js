@@ -51,7 +51,7 @@ const Login = () => {
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
-      console.log("lkmmkm",data)
+
       // Store token and user details
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role);
@@ -131,7 +131,7 @@ const Login = () => {
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
-              <Link href="/signup" variant="body2">
+              <Link href="/signup" variant="body2" onClick={() => navigate('/signup', { state: { transition: 'fade' } })}>
                 Don’t have an account? Sign up
               </Link>
             </Box>

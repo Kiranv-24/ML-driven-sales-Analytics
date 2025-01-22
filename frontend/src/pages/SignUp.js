@@ -23,25 +23,43 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
+    const { name, value } = e.target;
+  
+    // Email validation for gmail.com
+    if (name === 'email') {
+      if (value && !value.endsWith('@gmail.com')) {
+        setError('Email must end with @gmail.com');
+        setFormData(prevState => ({
+          ...prevState,
+          [name]: value,
+          isValidEmail: false
+        }));
+        return;
+      } else {
+        setError('');
+        setFormData(prevState => ({
+          ...prevState,
+          [name]: value,
+          isValidEmail: true
+        }));
+      }
+    } else {
+      setFormData(prevState => ({
+        ...prevState,
+        [name]: value
+      }));
+    }
   };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
+    
+    // Validate email before submission
+    if (!formData.email.endsWith('@gmail.com')) {
+      setError('Email must end with @gmail.com');
       return;
     }
-
+    setLoading(true);
     try {
       console.log(formData)
       const response = await fetch('http://localhost:5000/api/auth/register', {
@@ -77,7 +95,9 @@ const SignUp = () => {
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || 'Something went wrong');
     } finally {
+      setLoading(false);
       setLoading(false);
     }
   };
@@ -169,4 +189,4 @@ const SignUp = () => {
   );
 };
 
-export default SignUp; 
+export default SignUp;

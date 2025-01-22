@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
+  Dialog,
+  DialogTitle,
+  DialogContent,
   Grid, 
   Card, 
   CardContent, 
@@ -16,9 +19,10 @@ import ProductReview from '../components/ProductReview';
 import { productService, cartService } from '../services/api';
 
 const Products = () => {
+  const [openReviewDialog, setOpenReviewDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [hoveredProduct, setHoveredProduct] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [message, setMessage] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const role = localStorage.getItem('role');
@@ -26,7 +30,14 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
-
+  const handleReviewClick = (product) => {
+    setSelectedProduct(product);
+    setOpenReviewDialog(true);
+  };
+  const handleReviewSubmitted = () => {
+    setOpenReviewDialog(false);
+    fetchProducts(); // Refresh products to show updated reviews
+  };
   const fetchProducts = async () => {
     try {
       const response = await productService.getAllProducts();
@@ -46,6 +57,10 @@ const Products = () => {
         alert('Error deleting product');
       }
     }
+  };
+  const handleEditProduct = (productId) => {
+    // Your logic to handle editing the product
+    console.log(`Editing product with ID: ${productId}`);
   };
 
   const handleAddToCart = async (productId) => {
@@ -67,9 +82,24 @@ const Products = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-teal-50 to-green-50">
+    <div className="min-h-screen bg-[#E8E8E8]">
+      {/* <Typography 
+        variant="h4" 
+        component="h1" 
+        className="text-[#0056D2] font-bold mb-8 macondo-regular" 
+        style={{ fontFamily: 'Macondo, serif' }} 
+        gutterBottom 
+        sx={{ 
+          fontWeight: 600, 
+          color: '#333', 
+          padding: '16px'  // Adding padding
+        }}
+      >
+        Product
+      </Typography> */}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header Section */}
+        {/* Header Section
         <div className="text-center mb-12">
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
@@ -88,10 +118,10 @@ const Products = () => {
           >
             Explore our curated collection of high-quality products
           </motion.p>
-        </div>
+        </div> */}
 
         {/* Admin Add Product Button */}
-        {role === 'admin' && (
+        {/* {role === 'admin' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -105,7 +135,7 @@ const Products = () => {
               Add New Product
             </Link>
           </motion.div>
-        )}
+        )} */}
 
         {/* Products Grid */}
         <motion.div
@@ -125,11 +155,11 @@ const Products = () => {
                 className="relative bg-white rounded-2xl shadow-md overflow-hidden"
               >
                 {/* Product Image */}
-                <div className="relative h-64 overflow-hidden">
+                <div className="relative h-64 overflow-hidden ">
                   <img
                     src={product.image_url || 'https://via.placeholder.com/400'}
                     alt={product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover max-height:50px"
                   />
                   {product.quantity === 0 && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -146,41 +176,62 @@ const Products = () => {
                   <p className="text-gray-600 mb-4 line-clamp-2">{product.description}</p>
 
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-2xl font-bold text-teal-600">${product.price}</span>
+                    <span className="text-2xl font-bold text-teal-600">₹{product.price}</span>
                     <span
                       className={`px-3 py-1 rounded-full text-sm font-semibold ${
                         product.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                      {product.quantity > 0 ? `${product.quantity} in stock`: 'Out of stock'}
                     </span>
                   </div>
 
                   {/* Action Buttons */}
                   {role === 'admin' ? (
                     <div className="flex gap-4">
-                      <Link
-                        to={`/admin/edit-product/${product.id}`}
-                        className="flex-1 inline-flex justify-center items-center px-4 py-2 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition-colors duration-300"
+                      <button
+                        onClick={() => handleEditProduct(product.id)}
+                        className="flex-1 inline-flex justify-center items-center px-4 py-2 rounded-lg bg-teal-600 text-white font-semibold hover:bg-white hover:text-teal-600 border-black hover:border-teal-600 transform hover:scale-105 transition-all duration-300 hover:translate-y-1"
                       >
+                        <SparklesIcon className="h-5 w-5 mr-2" />
                         Edit
-                      </Link>
+                      </button>
                       <button
                         onClick={() => handleDeleteProduct(product.id)}
-                        className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors duration-300"
+                        className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-white hover:text-red-600 border-black hover:border-red-600 transform hover:scale-105 transition-all duration-300"
                       >
                         Delete
                       </button>
+
+
                     </div>
                   ) : (
                     <div className="flex gap-4">
                       <button
-                        onClick={() => setSelectedProduct(product.id)}
-                        className="flex-1 inline-flex justify-center items-center px-4 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors duration-300"
-                      >
-                        <HeartIcon className="h-5 w-5 mr-2" />
-                        Review
-                      </button>
+        onClick={() => handleReviewClick(product)}
+        className="flex-1 inline-flex justify-center items-center px-4 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors duration-300"
+      >
+        <HeartIcon className="h-5 w-5 mr-2" />
+        Review
+      </button>
+      <Dialog 
+        open={openReviewDialog} 
+        onClose={() => setOpenReviewDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        {selectedProduct && (
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-4">
+              Write a Review for {selectedProduct.name}
+            </h2>
+            <ProductReview
+              productId={selectedProduct.id}
+              onReviewSubmitted={handleReviewSubmitted}
+            />
+          </div>
+        )}
+      </Dialog>
                       <button
                         onClick={() => handleAddToCart(product.id)}
                         disabled={product.quantity === 0}

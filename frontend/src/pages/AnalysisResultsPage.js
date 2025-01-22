@@ -6,7 +6,7 @@ const AnalysisResultsPage = () => {
   const location = useLocation();
   const { 
     salesForecast,
-    stockoutPrediction,
+    // stockoutPrediction,
     demandAnalysis 
   } = location.state;
 
@@ -23,7 +23,7 @@ const AnalysisResultsPage = () => {
               {salesForecast?.map((forecast, index) => (
                 <Typography key={index}>
                   Date: {new Date(forecast.date).toLocaleDateString()} - 
-                  Predicted Sales: {forecast.predicted_sales.toFixed(2)}
+                  Predicted Sales: {forecast.predicted_sales ? forecast.predicted_sales.toFixed(0) : 'N/A'}
                 </Typography>
               ))}
             </Box>
@@ -35,10 +35,10 @@ const AnalysisResultsPage = () => {
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>Stockout Prediction</Typography>
             <Typography>
-              Average Daily Sales: {stockoutPrediction?.avgDailySales?.toFixed(2)}
+              Average Daily Sales: {stockoutPrediction?.avgDailySales ? stockoutPrediction.avgDailySales.toFixed(0) : 'N/A'}
             </Typography>
             <Typography>
-              Days until stockout: {stockoutPrediction?.stockoutDays?.toFixed(2)}
+              Days until stockout: {stockoutPrediction?.stockoutDays ? stockoutPrediction.stockoutDays.toFixed(0) : 'N/A'}
             </Typography>
             <Typography color={stockoutPrediction?.warning ? "error" : "success"}>
               {stockoutPrediction?.message}
@@ -51,13 +51,13 @@ const AnalysisResultsPage = () => {
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>Demand Analysis</Typography>
             <Typography>
-              Average Sales: {demandAnalysis?.avgSales?.toFixed(2)}
+              Average Sales: {demandAnalysis?.avgSales ? demandAnalysis.avgSales.toFixed(0) : 'N/A'}
             </Typography>
             <Typography>
-              Maximum Sales: {demandAnalysis?.maxSales}
+              Maximum Sales: {demandAnalysis?.maxSales ? demandAnalysis.maxSales.toFixed(0) : 'N/A'}
             </Typography>
             <Typography>
-              Minimum Sales: {demandAnalysis?.minSales}
+              Minimum Sales: {demandAnalysis?.minSales ? demandAnalysis.minSales.toFixed(0) : 'N/A'}
             </Typography>
           </Paper>
         </Grid>

@@ -16,6 +16,8 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import AdminOrders from './pages/AdminOrders';
 import ProductAnalysisPage from "./pages/ProductAnalysisPage";
+import './index.css';
+// ...existing code...
 
 function App() {
   return (
