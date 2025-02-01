@@ -176,13 +176,13 @@ const Products = () => {
                   <p className="text-gray-600 mb-4 line-clamp-2">{product.description}</p>
 
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-2xl font-bold text-teal-600">₹{product.price}</span>
+                    <span className="text-2xl font-bold text-teal-600">${product.price}</span>
                     <span
                       className={`px-3 py-1 rounded-full text-sm font-semibold ${
                         product.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {product.quantity > 0 ? `${product.quantity} in stock`: 'Out of stock'}
+                      {product.quantity > 0 ? `${product.quantity}` in stock : 'Out of stock'}
                     </span>
                   </div>
 

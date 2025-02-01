@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CircularProgress } from "@mui/material";
-import { 
-  ChartBarIcon, 
-  ChatBubbleBottomCenterTextIcon, 
-  ArrowTrendingUpIcon  
-} from '@heroicons/react/24/outline';
+import {
+  ChartBarIcon,
+  ChatBubbleBottomCenterTextIcon,
+} from "@heroicons/react/24/outline";
 
 const ProductDetailsPage = () => {
   const { id } = useParams();
@@ -32,10 +31,6 @@ const ProductDetailsPage = () => {
     navigate("/product-analysis", { state: { productId: id } });
   };
 
-  const handleDemandAnalysis = () => {
-    console.log("Demand analysis initiated for product ID:", id);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -47,28 +42,31 @@ const ProductDetailsPage = () => {
             </span>
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Gain valuable insights into your product's performance through our comprehensive analysis tools
+            Gain valuable insights into your product's performance through our
+            comprehensive analysis tools
           </p>
         </div>
 
         {/* Analysis Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {/* Review Analysis Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform hover:scale-105 hover:shadow-2xl transition-all duration-500 ease-in-out">
-            <div className="p-8">
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-                <ChatBubbleBottomCenterTextIcon className="h-6 w-6 text-blue-600" />
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 hover:shadow-xl duration-300">
+            <div className="p-8 flex flex-col items-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+                <ChatBubbleBottomCenterTextIcon className="h-8 w-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Review Analysis</h3>
-              <p className="text-gray-600 mb-6">
-                Analyze customer feedback and sentiment to understand user satisfaction
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                Review Analysis
+              </h3>
+              <p className="text-gray-600 text-center mb-6">
+                Analyze customer feedback and sentiment to understand user
+                satisfaction.
               </p>
               <button
                 onClick={handleReviewAnalysis}
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-xl font-semibold 
-                         hover:from-blue-700 hover:to-indigo-700 transform transition-all duration-300 
-                         focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 hover:scale-105"
+                  hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <CircularProgress size={24} className="text-white" />
@@ -80,43 +78,24 @@ const ProductDetailsPage = () => {
           </div>
 
           {/* Product Analysis Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform hover:scale-105 hover:shadow-2xl transition-all duration-500 ease-in-out">
-            <div className="p-8">
-              <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6">
-                <ChartBarIcon className="h-6 w-6 text-indigo-600" />
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 hover:shadow-xl duration-300">
+            <div className="p-8 flex flex-col items-center">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-6">
+                <ChartBarIcon className="h-8 w-8 text-indigo-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Product Analysis</h3>
-              <p className="text-gray-600 mb-6">
-                Get detailed insights into product performance and metrics
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                Product Analysis
+              </h3>
+              <p className="text-gray-600 text-center mb-6">
+                Get detailed insights into product performance<br></br> and
+                metrics.
               </p>
               <button
                 onClick={handleProductAnalysis}
                 className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold 
-                         hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-300 
-                         focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 hover:scale-105"
+                  hover:from-indigo-700 hover:to-purple-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 Analyze Product
-              </button>
-            </div>
-          </div>
-
-          {/* Demand Analysis Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform hover:scale-105 hover:shadow-2xl transition-all duration-500 ease-in-out">
-            <div className="p-8">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mb-6">
-                <ArrowTrendingUpIcon className="h-6 w-6 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Demand Analysis</h3>
-              <p className="text-gray-600 mb-6">
-                Forecast future demand and optimize inventory levels
-              </p>
-              <button
-                onClick={handleDemandAnalysis}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-xl font-semibold 
-                         hover:from-purple-700 hover:to-pink-700 transform transition-all duration-300 
-                         focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:scale-105"
-              >
-                Analyze Demand
               </button>
             </div>
           </div>
@@ -129,9 +108,9 @@ const ProductDetailsPage = () => {
               Make Data-Driven Decisions
             </h2>
             <p className="text-gray-600">
-              Our advanced analytics tools help you understand your product's performance,
-              customer satisfaction, and market demand through comprehensive analysis and
-              intuitive visualizations.
+              Our advanced analytics tools help you understand your product's
+              performance, customer satisfaction, and market demand through
+              comprehensive analysis and intuitive visualizations.
             </p>
           </div>
         </div>
@@ -139,6 +118,5 @@ const ProductDetailsPage = () => {
     </div>
   );
 };
-
 
 export default ProductDetailsPage;

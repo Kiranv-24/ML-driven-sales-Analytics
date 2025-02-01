@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import { useNavigate } from 'react-router-dom';
-import { cartService } from '../services/api';
+import React, { useState, useEffect } from "react";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import { useNavigate } from "react-router-dom";
+import { cartService } from "../services/api";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [cartItemCount, setCartItemCount] = useState(0);
-  const role = localStorage.getItem('role');
-  const token = localStorage.getItem('token');
+  const role = localStorage.getItem("role");
+  const token = localStorage.getItem("token");
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
-    navigate('/login');
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("userId");
+    navigate("/login");
   };
 
   return (
@@ -23,10 +23,10 @@ const Navbar = () => {
           <div className="flex-shrink-0 transform hover:scale-105 transition-all duration-300">
             <h1
               className="text-white text-3xl font-extrabold cursor-pointer font-[IBM Plex Mono]"
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
             >
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-200 hover:italic transition-all duration-300">
-                Feedback System
+                TechMart
               </span>
             </h1>
           </div>
@@ -34,28 +34,28 @@ const Navbar = () => {
           <div className="flex items-center space-x-6">
             {token ? (
               <>
-                {role === 'admin' ? (
+                {role === "admin" ? (
                   <div className="flex items-center space-x-4">
                     <button
-                      onClick={() => navigate('/admin')}
+                      onClick={() => navigate("/admin")}
                       className="bg-white text-[#0056D2] hover:text-white hover:bg-[#1E90FF] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-blue-200 hover:border-white/40 hover:scale-105"
                     >
                       Dashboard
                     </button>
                     <button
-                      onClick={() => navigate('/admin/orders')}
+                      onClick={() => navigate("/admin/orders")}
                       className="bg-white text-[#0056D2] hover:text-white hover:bg-[#1E90FF] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-blue-200 hover:border-white/40 hover:scale-105"
                     >
                       Orders
                     </button>
                     <button
-                      onClick={() => navigate('/products')}
+                      onClick={() => navigate("/products")}
                       className="bg-white text-[#0056D2] hover:text-white hover:bg-[#1E90FF] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-blue-200 hover:border-white/40 hover:scale-105"
                     >
                       Products
                     </button>
                     <button
-                      onClick={() => navigate('/admin/add-product')}
+                      onClick={() => navigate("/admin/add-product")}
                       className="bg-white text-[#0056D2] hover:text-white hover:bg-[#1E90FF] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-blue-200 hover:border-white/40 hover:scale-105"
                     >
                       Add Product
@@ -64,13 +64,13 @@ const Navbar = () => {
                 ) : (
                   <div className="flex items-center space-x-6">
                     <button
-                      onClick={() => navigate('/products')}
+                      onClick={() => navigate("/products")}
                       className="text-[#333333] hover:bg-[#F5F5F5] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-gray-300 hover:border-gray-400"
                     >
                       Products
                     </button>
                     <button
-                      onClick={() => navigate('/cart')}
+                      onClick={() => navigate("/cart")}
                       className="text-[#333333] hover:bg-[#F5F5F5] p-3 rounded-full transition-all duration-300 relative group"
                     >
                       <ShoppingCartIcon className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
@@ -92,13 +92,13 @@ const Navbar = () => {
             ) : (
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate("/login")}
                   className="bg-white/10 hover:bg-white/20 text-[#333333] px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 backdrop-blur-sm border border-gray-300 hover:border-gray-400"
                 >
                   Login
                 </button>
                 <button
-                  onClick={() => navigate('/signup')}
+                  onClick={() => navigate("/signup")}
                   className="bg-[#66C0F4] text-[#0056D2] hover:bg-[#6BAED6] px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg hover:shadow-white/50"
                 >
                   Sign Up

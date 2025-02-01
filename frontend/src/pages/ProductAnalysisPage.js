@@ -363,7 +363,7 @@ const ProductAnalysisPage = () => {
       })),
       ...(data.forecast_data || []).map((item) => ({
         date: item.date,
-        sales: item.predicted_sales || 0,
+        sales: Math.ceil(item.predicted_sales || 0),
         type: "Forecast",
       })),
     ];
