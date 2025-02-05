@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CircularProgress } from "@mui/material";
-import {
-  ChartBarIcon,
-  ChatBubbleBottomCenterTextIcon,
-} from "@heroicons/react/24/outline";
+import documentsIcon from '../assets/icons/presentation.png';
+import productIcon from '../assets/icons/visual.png';
 
 const ProductDetailsPage = () => {
   const { id } = useParams();
@@ -37,7 +35,7 @@ const ProductDetailsPage = () => {
         {/* Header Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-black to-gray-900">
               Product Analysis Dashboard
             </span>
           </h1>
@@ -53,7 +51,11 @@ const ProductDetailsPage = () => {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 hover:shadow-xl duration-300">
             <div className="p-8 flex flex-col items-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-                <ChatBubbleBottomCenterTextIcon className="h-8 w-8 text-blue-600" />
+              <img
+              src={documentsIcon}
+              alt="Review Analysis"
+              className="h-8 w-8 object-contain"
+            />
               </div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-4">
                 Review Analysis
@@ -65,8 +67,9 @@ const ProductDetailsPage = () => {
               <button
                 onClick={handleReviewAnalysis}
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-xl font-semibold 
-                  hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#5C7285] text-white py-3 px-6 rounded-xl font-semibold 
+                  hover:bg-[#4A5B69] focus:ring-2 focus:ring-[#5C7285] focus:ring-offset-2 
+                  disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
                 {loading ? (
                   <CircularProgress size={24} className="text-white" />
@@ -81,7 +84,11 @@ const ProductDetailsPage = () => {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 hover:shadow-xl duration-300">
             <div className="p-8 flex flex-col items-center">
               <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-6">
-                <ChartBarIcon className="h-8 w-8 text-indigo-600" />
+                <img
+                src={productIcon}
+                alt="Review Analysis"
+                className="h-8 w-8 object-contain"
+            />
               </div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-4">
                 Product Analysis
@@ -92,8 +99,9 @@ const ProductDetailsPage = () => {
               </p>
               <button
                 onClick={handleProductAnalysis}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold 
-                  hover:from-indigo-700 hover:to-purple-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="w-full bg-[#5C7285] text-white py-3 px-6 rounded-xl font-semibold 
+                  hover:bg-[#4A5B69] focus:ring-2 focus:ring-[#5C7285] focus:ring-offset-2 
+                  transition-all duration-300"
               >
                 Analyze Product
               </button>
@@ -104,10 +112,13 @@ const ProductDetailsPage = () => {
         {/* Additional Info Section */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Make Data-Driven Decisions
+            <h2 
+              className="text-2xl font-bold text-gray-900 mb-4"
+             >
+             Make Data-Driven Decisions
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600"
+            >
               Our advanced analytics tools help you understand your product's
               performance, customer satisfaction, and market demand through
               comprehensive analysis and intuitive visualizations.

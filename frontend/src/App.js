@@ -16,6 +16,8 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import AdminOrders from './pages/AdminOrders';
 import ProductAnalysisPage from "./pages/ProductAnalysisPage";
+import ProductStatistics from './pages/ProductStatistics';
+import RecentReviews from './pages/RecentReviews';
 import './index.css';
 // ...existing code...
 
@@ -59,6 +61,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminOrders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/product-statistics"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <ProductStatistics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/recent-reviews"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <RecentReviews />
               </ProtectedRoute>
             }
           />
