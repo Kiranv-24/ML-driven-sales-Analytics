@@ -41,6 +41,7 @@ app.use("/api/cart", require("./routes/cart"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/payment", require("./routes/payment"));
 app.use("/api/sales", require("./routes/Sales"));
+app.use("/api/Sales", require("./routes/salesRoutes"));
 
 // Initialize databases and start server
 initializeDatabases();

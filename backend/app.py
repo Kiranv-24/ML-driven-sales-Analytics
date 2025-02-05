@@ -18,6 +18,11 @@ import io
 import base64
 from io import BytesIO
 from scipy.ndimage import gaussian_filter1d
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_absolute_error
+import matplotlib.pyplot as plt
+import traceback
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -48,21 +53,16 @@ class ProductImprovementSystem:
     def analyze_reviews(self, reviews):
         combined_reviews = " ".join(reviews)
         prompt = f"""
-        You are an AI product analyst. Based on the following customer reviews, identify the key issues with the product and provide actionable improvement suggestions. For each issue, also give a priority level.
+         Analyze the following customer reviews and provide precise, actionable improvement suggestions. For each issue identified, respond in the following format:
 
-        Your response should be structured as follows:
-        1. **Key Issue #1**: (brief description of the problem)
-            - **Suggestion**: (specific action or improvement)
-            - **Priority**: (High, Medium, Low)
-        2. **Key Issue #2**: (brief description of the problem)
-            - **Suggestion**: (specific action or improvement)
-            - **Priority**: (High, Medium, Low)
-        3. Continue listing more issues and suggestions if applicable.
+        **Issue**: [Brief description of the problem]
+        **Improvement**: [Specific action or improvement]
 
-        Please ensure the following:
-        - Focus on the **most common** and **important** issues across reviews.
-        - Make suggestions **specific**, **realistic**, and **easy to implement**.
-        - Ensure that the priority levels reflect the **urgency** and **impact** of each issue.
+        Ensure the following:
+        - Focus on the most common and critical issues.
+        - Provide concise and realistic suggestions.
+        - Avoid unnecessary explanations or fluff.
+
 
         Reviews: {combined_reviews}
         """
@@ -526,100 +526,127 @@ def sales_forecast():
         if df.empty:
             return jsonify({'error': 'Empty sales data provided'}), 400
 
-        df['date'] = pd.to_datetime(df['date'])
-        df['quantity_sold'] = pd.to_numeric(df['quantity_sold'], errors='coerce').fillna(0)
+        forecast_days = int(data.get('forecast_days', 7))
         
-        # Ensure we have enough data points
-        if len(df) < 3:  # Minimum required for meaningful forecast
-            return jsonify({
-                'forecast_data': [],
-                'error': 'Not enough data points for forecast'
-            }), 200
-
-        brand = data.get('brand', 'Unknown')
-        model = data.get('model', 'Unknown')
-        forecast_days = int(data.get('forecast_days', 14))
-
-        # Feature engineering
-        filtered = feature_engineering(df)
+        # Convert date and sort
+        df['Date'] = pd.to_datetime(df['date'])
+        df = df.sort_values(by='Date')
         
-        feature_cols = [
-            'day_of_year', 'month', 'day_of_week', 'is_weekend', 'is_holiday',
-            'rolling_mean_7d', 'rolling_mean_30d', 'rolling_std_7d', 'rolling_std_30d',
-            'trend_normalized', 'month_sin', 'month_cos', 'day_sin', 'day_cos',
-            'lag_1', 'lag_3', 'lag_7', 'lag_14', 'lag_30'
+        # Basic time features
+        df['Year'] = df['Date'].dt.year
+        df['Month'] = df['Date'].dt.month
+        df['Day'] = df['Date'].dt.day
+        df['Weekday'] = df['Date'].dt.weekday
+        df['Week'] = df['Date'].dt.isocalendar().week
+        df['Quarter'] = df['Date'].dt.quarter
+
+        # Define column mappings (adjust these based on your actual column names)
+        categorical_columns = [
+            "brand", "model", "vehicle_type", "fuel_type", "city", "dealer_type", 
+            "customer_age_group", "customer_gender", "occupation_of_buyer", "payment_mode", 
+            "festive_season_purchase", "advertisement_type", "service_availability", 
+            "weather_condition", "road_conditions"
         ]
         
-        X = filtered[feature_cols]
-        y = filtered['quantity_sold']
+        numerical_columns = [
+            "engine_capacity_cc", "price_inr", "petrol_price_at_purchase", 
+            "competitor_brand_presence", "discounts_offers", "stock_on_date"
+        ]
 
-        # Ensure no NaN values and non-zero variance
-        X = X.fillna(0)
-        y = y.fillna(0)
+        # Handle categorical columns
+        label_encoders = {}
+        for col in categorical_columns:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+                label_encoders[col] = LabelEncoder()
+                df[col] = label_encoders[col].fit_transform(df[col])
+
+        # Handle numerical columns
+        scaler = MinMaxScaler()
+        numerical_cols_present = [col for col in numerical_columns if col in df.columns]
+        if numerical_cols_present:
+            df[numerical_cols_present] = scaler.fit_transform(df[numerical_cols_present])
+
+        # Add rolling averages for smoothing
+        df['MA7'] = df['quantity_sold'].rolling(window=7, min_periods=1).mean()
+        df['MA30'] = df['quantity_sold'].rolling(window=30, min_periods=1).mean()
         
-        # Add small random noise to prevent zero variance
-        for col in X.columns:
-            if X[col].std() == 0:
-                X[col] = X[col] + np.random.normal(0, 0.0001, size=len(X))
+        # Prepare features
+        feature_columns = ['Year', 'Month', 'Day', 'Weekday', 'Week', 'Quarter']
+        feature_columns.extend([col for col in categorical_columns if col in df.columns])
+        feature_columns.extend([col for col in numerical_cols_present if col in df.columns])
 
-        # Scale features
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+        X = df[feature_columns]
+        y = df['quantity_sold']
 
-        # Train model with simpler parameters for small datasets
+        # Train model with same parameters as notebook
         model = GradientBoostingRegressor(
-            n_estimators=100,
+            n_estimators=200,
             learning_rate=0.1,
-            max_depth=3,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            subsample=1.0,
+            max_depth=4,
             random_state=42
         )
+        model.fit(X, y)
 
-        model.fit(X_scaled, y)
+        # Generate future dates
+        last_date = df['Date'].max()
+        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), 
+                                   periods=forecast_days, freq='D')
 
         # Prepare future data
-        last_date = filtered['date'].iloc[-1]
-        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1),
-                                   periods=forecast_days, freq='D')
-        
-        future_data = pd.DataFrame({'date': future_dates})
-        future_data = feature_engineering(pd.concat([filtered, future_data], axis=0)).tail(forecast_days)
-        
-        X_future = future_data[feature_cols]
-        X_future = X_future.fillna(0)
-        
-        # Add small random noise to prevent zero variance
-        for col in X_future.columns:
-            if X_future[col].std() == 0:
-                X_future[col] = X_future[col] + np.random.normal(0, 0.0001, size=len(X_future))
-        
-        X_future_scaled = scaler.transform(X_future)
-        
+        future_data = pd.DataFrame()
+        future_data['Date'] = future_dates
+        future_data['Year'] = future_data['Date'].dt.year
+        future_data['Month'] = future_data['Date'].dt.month
+        future_data['Day'] = future_data['Date'].dt.day
+        future_data['Weekday'] = future_data['Date'].dt.weekday
+        future_data['Week'] = future_data['Date'].dt.isocalendar().week
+        future_data['Quarter'] = future_data['Date'].dt.quarter
+
+        # Copy last known values for categorical and numerical columns
+        last_entry = df.iloc[-1]
+        for col in feature_columns:
+            if col not in future_data.columns:
+                future_data[col] = last_entry[col]
+
+        # Ensure columns match training data
+        future_data = future_data[feature_columns]
+
         # Make predictions
-        predictions = model.predict(X_future_scaled)
-        predictions = np.maximum(predictions, 0)  # Ensure non-negative predictions
-        smoothed_predictions = gaussian_filter1d(predictions, sigma=0.8)
+        predictions = model.predict(future_data)
+        predictions = np.round(predictions, 2)
 
-        # Prepare forecast data as a list of dictionaries
-        forecast_data = []
-        for date, pred in zip(future_dates, smoothed_predictions):
-            forecast_data.append({
+        # Calculate accuracy metrics
+        y_pred = model.predict(X)
+        r2 = r2_score(y, y_pred)
+        mae = mean_absolute_error(y, y_pred)
+
+        # Prepare response
+        response = {
+            'forecast_data': [{
                 'date': date.strftime('%Y-%m-%d'),
-                'predicted_sales': to_python_type(pred)
-            })
-
-        return jsonify({
-            'forecast_data': forecast_data,
+                'predicted_sales': float(sales)
+            } for date, sales in zip(future_dates, predictions)],
             'historical_data': [{
-                'date': row['date'].strftime('%Y-%m-%d'),
-                'actual_sales': to_python_type(row['quantity_sold'])
-            } for _, row in filtered.iterrows()]
-        })
+                'date': date.strftime('%Y-%m-%d'),
+                'actual_sales': float(sales),
+                'ma7': float(ma7),
+                'ma30': float(ma30)
+            } for date, sales, ma7, ma30 in zip(df['Date'], 
+                                              df['quantity_sold'],
+                                              df['MA7'],
+                                              df['MA30'])],
+            'accuracy': {
+                'r2_score': float(r2),
+                'mean_absolute_error': float(mae)
+            }
+        }
+
+        return jsonify(response)
 
     except Exception as e:
         print(f"Forecast error: {str(e)}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sales/demand-analysis', methods=['POST'])

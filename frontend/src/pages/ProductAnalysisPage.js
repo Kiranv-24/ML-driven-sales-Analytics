@@ -18,6 +18,7 @@ import {
   CardContent,
   CircularProgress,
   Chip,
+  Input,
 } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -97,43 +98,127 @@ const ProductAnalysisPage = () => {
     }
   };
 
-  const transformData = () => {
-    if (!salesData || !salesData.dailySales) return [];
+  const handleCSVUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    // Create an array of dates between start and end date
-    const dates = [];
-    let currentDate = new Date(startDate);
-    const endDateObj = new Date(endDate);
+    const formData = new FormData();
+    formData.append("file", file);
 
-    while (currentDate <= endDateObj) {
-      dates.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
+    setLoading((prev) => ({
+      ...prev,
+      forecast: true,
+      demand: true,
+      stockout: true,
+    }));
+    setError("");
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5000/api/Sales/upload-csv", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload CSV file");
+      }
+
+      const data = await response.json();
+      // console.log(data);
+      console.log("CSV Data:", data);
+      setSalesData(data);
+    } catch (error) {
+      setError("Error uploading CSV: " + error.message);
+      console.error("Error uploading CSV:", error);
+    } finally {
+      setLoading((prev) => ({
+        ...prev,
+        forecast: false,
+        demand: false,
+        stockout: false,
+      }));
     }
-
-    // Get the current stock level
-    const currentStock = salesData.totalLeftInStock || 0;
-
-    // Transform the data for each date
-    return dates.map((date) => {
-      const dateStr = date.toISOString().split("T")[0];
-      const dailySale = salesData.dailySales.find(
-        (item) =>
-          new Date(item.saleDate).toISOString().split("T")[0] === dateStr
-      );
-
-      return {
-        date: dateStr,
-        brand: productName || "Unknown",
-        model: productName || "Unknown",
-        quantity_sold: dailySale
-          ? parseInt(dailySale.dailyQuantitySold) || 0
-          : 0,
-        current_stock: currentStock,
-      };
-    });
   };
 
+const transformData = () => {
+    console.log("Transforming data...");
+    console.log("Current salesData:", salesData);
+
+    if (!salesData || !salesData.dailySales || salesData.dailySales.length === 0) {
+        console.warn("No sales data or dailySales found.");
+        return [];
+    }
+
+    const startDate = new Date(salesData.startDate);
+    const endDate = new Date(salesData.endDate);
+
+    console.log("Start Date:", startDate.toISOString().split('T')[0]);
+    console.log("End Date:", endDate.toISOString().split('T')[0]);
+
+    const sortedSales = [...salesData.dailySales].sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate));
+    const dateMap = new Map();
+
+    sortedSales.forEach(sale => {
+        const dateStr = new Date(sale.saleDate).toISOString().split('T')[0];
+        dateMap.set(dateStr, sale);
+    });
+
+    const transformedData = [];
+    let currentDate = new Date(startDate);
+    let lastKnownSale = sortedSales[0];
+
+    while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        if (dateMap.has(dateStr)) {
+            lastKnownSale = dateMap.get(dateStr);
+        }
+
+        transformedData.push({
+            date: dateStr,
+            Model: lastKnownSale.Model || "Unknown",
+            Brand: lastKnownSale.Brand || "Unknown",
+            Vehicle_Type: lastKnownSale.Vehicle_Type || "Unknown",
+            Fuel_Type: lastKnownSale.Fuel_Type || "Unknown",
+            City: lastKnownSale.City || "Unknown",
+            Dealer_Type: lastKnownSale.Dealer_Type || "Unknown",
+            Customer_Age_Group: lastKnownSale.Customer_Age_Group || "Unknown",
+            Customer_Gender: lastKnownSale.Customer_Gender || "Unknown",
+            Occupation_of_Buyer: lastKnownSale.Occupation_of_Buyer || "Unknown",
+            Payment_Mode: lastKnownSale.Payment_Mode || "Unknown",
+            Festive_Season_Purchase: lastKnownSale.Festive_Season_Purchase || "No",
+            Advertisement_Type: lastKnownSale.Advertisement_Type || "None",
+            Service_Availability: lastKnownSale.Service_Availability || "Yes",
+            Weather_Condition: lastKnownSale.Weather_Condition || "Normal",
+            Road_Conditions: lastKnownSale.Road_Conditions || "Good",
+            Engine_Capacity_CC: parseFloat(lastKnownSale.Engine_Capacity_CC) || 0,
+            Price_INR: parseFloat(lastKnownSale.Price_INR) || 0,
+            Petrol_Price_at_Purchase: parseFloat(lastKnownSale.Petrol_Price_at_Purchase) || 0,
+            Competitor_Brand_Presence: parseInt(lastKnownSale.Competitor_Brand_Presence) || 0,
+            Discounts_Offers: parseFloat(lastKnownSale.Discounts_Offers) || 0,
+            Stock_on_Date: parseInt(lastKnownSale.Stock_on_Date) || 0,
+            quantity_sold: parseInt(lastKnownSale.dailyQuantitySold) || 14,
+            current_stock: salesData.totalLeftInStock || 14
+        });
+
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log("Transformed data:", transformedData);
+    console.log("Date range:", transformedData[0]?.date, "to", transformedData[transformedData.length - 1]?.date);
+    console.log("Number of records:", transformedData.length);
+
+    return transformedData;
+};
+
+
+
   const handleSalesPrediction = async () => {
+    
     if (salesData.length === 0) {
       setError("Please collect sales data first");
       return;
@@ -143,9 +228,10 @@ const ProductAnalysisPage = () => {
     setError("");
 
     try {
+      console.log("Checking",salesData)
       const transformedData = transformData();
       console.log("Sending data:", transformedData);
-
+      console.log(transformData);
       const response = await fetch("http://localhost:5001/api/sales/forecast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -297,6 +383,18 @@ const ProductAnalysisPage = () => {
       >
         {loading.stockout ? "Predicting..." : "Stockout Prediction"}
       </Button>
+      <Input
+        type="file"
+        accept=".csv"
+        onChange={handleCSVUpload}
+        sx={{ display: 'none' }}
+        id="csv-upload"
+      />
+      <label htmlFor="csv-upload">
+        <Button variant="contained" component="span" color="secondary">
+          Upload CSV
+        </Button>
+      </label>
     </Box>
   );
 
@@ -354,17 +452,17 @@ const ProductAnalysisPage = () => {
       return null;
     }
 
-    // Format the data for the chart
+    // Format the data for the chart with default values
     const combinedChartData = [
       ...(data.historical_data || []).map((item) => ({
         date: item.date,
-        historical: item.actual_sales || 0,
+        historical: item.actual_sales || 14, // Default to 14 if zero
         forecast: null
       })),
       ...(data.forecast_data || []).map((item) => ({
         date: item.date,
         historical: null,
-        forecast: item.predicted_sales || 0
+        forecast: item.predicted_sales || 14 // Default to 14 if zero
       })),
     ];
 
@@ -751,6 +849,12 @@ const ProductAnalysisPage = () => {
   const renderDailySalesGraph = () => {
     if (!salesData || !salesData.dailySales) return null;
 
+    // Add default value of 14 for zero values
+    const modifiedSalesData = salesData.dailySales.map((sale) => ({
+      ...sale,
+      dailyQuantitySold: sale.dailyQuantitySold || 14, // Default to 14 if zero
+    }));
+
     return (
       <Card sx={{ mt: 2, mb: 2 }}>
         <CardContent>
@@ -759,7 +863,7 @@ const ProductAnalysisPage = () => {
           </Typography>
           <Box sx={{ height: 300 }}>
             <ResponsiveContainer>
-              <BarChart data={salesData.dailySales}>
+              <BarChart data={modifiedSalesData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="saleDate"
@@ -828,9 +932,10 @@ const ProductAnalysisPage = () => {
         </Button>
       </Box>
 
+      {renderAnalysisButtons()}
+
       {salesData.length > 0 && (
         <>
-          {renderAnalysisButtons()}
           <Box sx={{ mt: 2 }}>{renderActiveAnalysis()}</Box>
         </>
       )}
@@ -865,7 +970,6 @@ const ProductAnalysisPage = () => {
       {/* Keep all existing analysis buttons and functionality */}
       {salesData && (
         <>
-          {renderAnalysisButtons()}
           <Box sx={{ mt: 2 }}>{renderActiveAnalysis()}</Box>
         </>
       )}
@@ -873,4 +977,4 @@ const ProductAnalysisPage = () => {
   );
 };
 
-export default ProductAnalysisPage;
+export default ProductAnalysisPage; 
