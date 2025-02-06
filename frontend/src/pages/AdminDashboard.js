@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Paper, Grid, Table, TableBody, TableCell, TableHead, TableRow, Rating, Button } from '@mui/material';
+import { Box, Typography, Paper, Button, Container, IconButton } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import statisticsIcon from '../assets/icons/statistics.png';
 import mostrecentIcon from '../assets/icons/most-recent.png';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import RateReviewIcon from '@mui/icons-material/RateReview';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -22,21 +26,18 @@ const AdminDashboard = () => {
 
   const fetchDashboardStats = useCallback(async () => {
     try {
-      // Fetch products
       const productsResponse = await axios.get('http://localhost:5000/api/products', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
-      // Fetch reviews
       const reviewsResponse = await axios.get('http://localhost:5000/api/reviews', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
-      // Fetch orders
       const ordersResponse = await axios.get('http://localhost:5000/api/orders/all', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -60,99 +61,286 @@ const AdminDashboard = () => {
   }, [fetchDashboardStats]);
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] p-8" style={{ backgroundColor: '#E8E8E8 ' }}>
-      <div className="max-w-7xl mx-auto">
-      <Typography 
-        variant="h3" 
-        className="text-[#000000] font-bold mb-8"
-        sx={{
-          fontFamily: '"Lugrasimo", serif',
-          fontWeight: 400,
-          fontStyle: 'normal'
-        }}
-      >
-        Admin Dashboard
-      </Typography>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)',
+        py: 4,
+        px: { xs: 2, sm: 4 },
+        color: 'white'
+      }}
+    >
+      <Container maxWidth="xl">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 5
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TwoWheelerIcon 
+              sx={{ 
+                fontSize: 48,
+                color: '#ffd700',
+                filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.3))'
+              }} 
+            />
+            <Typography 
+              variant="h3" 
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(45deg, #ffd700 30%, #ffa500 90%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                letterSpacing: '1px'
+              }}
+            >
+              Admin Dashboard
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={fetchDashboardStats}
+            sx={{
+              backgroundColor: 'rgba(255,215,0,0.1)',
+              '&:hover': {
+                backgroundColor: 'rgba(255,215,0,0.2)',
+                transform: 'rotate(180deg)',
+                transition: 'all 0.5s ease-in-out'
+              }
+            }}
+          >
+            <RefreshIcon sx={{ color: '#ffd700' }} />
+          </IconButton>
+        </Box>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Paper elevation={4} className="bg-gradient-to-br from-[#A7B49E] rounded-xl shadow-xl p-6 text-black hover:scale-105 transition-all duration-300">
-            <Typography variant="body2" className="text-black font-semibold mb-2">Total Products</Typography>
-            <Typography variant="h4" className="font-bold text-black">{stats.totalProducts}</Typography>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              lg: 'repeat(3, 1fr)'
+            },
+            gap: 3,
+            mb: 4
+          }}
+        >
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.2) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,215,0,0.3)',
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'transform 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-5px)',
+                border: '1px solid rgba(255,215,0,0.5)',
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <TwoWheelerIcon sx={{ fontSize: 32, color: '#ffd700' }} />
+              <Typography sx={{ fontWeight: 500, color: '#ffd700' }}>Total Bikes</Typography>
+            </Box>
+            <Typography variant="h3" sx={{ fontWeight: 700, color: 'white' }}>{stats.totalProducts}</Typography>
           </Paper>
-          <Paper elevation={4} className="bg-gradient-to-br from-[#A7B49E] rounded-xl shadow-xl p-6 text-black hover:scale-105 transition-all duration-300">
-            <Typography variant="body2" className="text-black font-semibold mb-2">Total Reviews</Typography>
-            <Typography variant="h4" className="font-bold text-black">{stats.totalReviews}</Typography>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.2) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,215,0,0.3)',
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'transform 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-5px)',
+                border: '1px solid rgba(255,215,0,0.5)',
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <RateReviewIcon sx={{ fontSize: 32, color: '#ffd700' }} />
+              <Typography sx={{ fontWeight: 500, color: '#ffd700' }}>Total Reviews</Typography>
+            </Box>
+            <Typography variant="h3" sx={{ fontWeight: 700, color: 'white' }}>{stats.totalReviews}</Typography>
           </Paper>
-          <Paper elevation={4} className="bg-gradient-to-br from-[#A7B49E] rounded-xl shadow-xl p-6 text-black hover:scale-105 transition-all duration-300">
-            <Typography variant="body2" className="text-black font-semibold mb-2">Total Orders</Typography>
-            <Typography variant="h4" className="font-bold text-black">{stats.totalOrders}</Typography>
-          </Paper>
-        </div>
+
+          
+        </Box>
 
         {/* Navigation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-          {/* Product Statistics Card */}
-          <Paper 
-            elevation={4} 
-            className="bg-white rounded-xl shadow-xl p-6 transition-all duration-300 cursor-default"
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)'
+            },
+            gap: 3
+          }}
+        >
+          <Paper
+            elevation={0}
+            sx={{
+              p: 4,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.2) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,215,0,0.3)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-5px)',
+                border: '1px solid rgba(255,215,0,0.5)',
+              }
+            }}
           >
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 ml-auto mr-auto">
-                <img
-                src={statisticsIcon}
-                alt="Review Analysis"
-                className="h-8 w-8 object-contain mr-2"
-            />
-              </div>
-            <Typography variant="h6" className="text-[#333333] font-semibold mb-2 text-center">
-              Product Statistics
-            </Typography>
-            <Typography variant="body2" className="text-gray-600 mb-4 text-center">
-              View detailed statistics and performance metrics for all products
-            </Typography>
-            <div className="flex justify-center items-center">
-            <button
-              className="bg-white text-[#000000] hover:text-white hover:bg-[#5C7285] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-gray-200 hover:border-white/40 hover:scale-105"
-              onClick={() => navigate('/admin/product-statistics')}
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                background: 'rgba(255,215,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mb: 3,
+                mx: 'auto',
+                border: '2px solid rgba(255,215,0,0.3)'
+              }}
             >
-              View Statistics
-            </button>
-            </div>
-
-          </Paper>
-
-          {/* Recent Reviews Card */}
-          <Paper 
-            elevation={4} 
-            className="bg-white rounded-xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer"
-            
-          >
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 ml-auto mr-auto">
-                <img
-                src={mostrecentIcon}
-                alt="Review Analysis"
-                className="h-8 w-8 object-contain"
-            />
-              </div>
-            <Typography variant="h6" className="text-[#333333] font-semibold mb-2 text-center">
-              Recent Reviews
+              <TwoWheelerIcon sx={{ fontSize: 40, color: '#ffd700' }} />
+            </Box>
+            <Typography
+              variant="h6"
+              sx={{
+                textAlign: 'center',
+                fontWeight: 600,
+                color: '#ffd700',
+                mb: 2
+              }}
+            >
+              Bike Analytics
             </Typography>
-            <Typography variant="body2" className="text-gray-600 mb-4 text-center">
-              Monitor the latest customer reviews and feedback
+            <Typography
+              sx={{
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.7)',
+                mb: 3
+              }}
+            >
+              Track motorcycle performance metrics and sales data
             </Typography>
-            <div className="flex justify-center items-center">
-              <button
-              className="bg-white text-[#000000] hover:text-white hover:bg-[#5C7285] px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all duration-300 border border-gray-200 hover:border-white/40 hover:scale-105"
-              onClick={() => navigate('/admin/recent-reviews')}
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/admin/product-statistics')}
+                sx={{
+                  background: 'linear-gradient(45deg, #ffd700 30%, #ffa500 90%)',
+                  color: '#1e1e1e',
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #ffa500 30%, #ffd700 90%)',
+                    transform: 'scale(1.05)'
+                  }
+                }}
               >
-                  View Reviews
-              </button>
-            </div>
-           
+                View Analytics
+              </Button>
+            </Box>
           </Paper>
-        </div>
-      </div>
-    </div>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 4,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.2) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,215,0,0.3)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-5px)',
+                border: '1px solid rgba(255,215,0,0.5)',
+              }
+            }}
+          >
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                background: 'rgba(255,215,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mb: 3,
+                mx: 'auto',
+                border: '2px solid rgba(255,215,0,0.3)'
+              }}
+            >
+              <RateReviewIcon sx={{ fontSize: 40, color: '#ffd700' }} />
+            </Box>
+            <Typography
+              variant="h6"
+              sx={{
+                textAlign: 'center',
+                fontWeight: 600,
+                color: '#ffd700',
+                mb: 2
+              }}
+            >
+              Rider Reviews
+            </Typography>
+            <Typography
+              sx={{
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.7)',
+                mb: 3
+              }}
+            >
+              Monitor rider feedback and motorcycle reviews
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/admin/recent-reviews')}
+                sx={{
+                  background: 'linear-gradient(45deg, #ffd700 30%, #ffa500 90%)',
+                  color: '#1e1e1e',
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #ffa500 30%, #ffd700 90%)',
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                View Reviews
+              </Button>
+            </Box>
+          </Paper>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

@@ -4,7 +4,7 @@ require('dotenv').config();
 const connectDB = async () => {
     try {
         console.log('Attempting to connect to MongoDB...');
-        const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://kiranv242004:s7r6Hv3l5xqVWm00@cluster0.sw04u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+        const conn = await mongoose.connect('mongodb+srv://kiranv242004:s7r6Hv3l5xqVWm00@cluster0.sw04u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
             serverSelectionTimeoutMS: 5000,
             family: 4
         });

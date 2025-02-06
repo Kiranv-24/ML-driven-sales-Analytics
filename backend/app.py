@@ -318,201 +318,18 @@ def feature_engineering(data):
     
     return data
 
-def sales_prediction(data, forecast_days=7, brand=None, model=None):
-    # Create a unique key for this brand/model combination
-    prediction_key = f"{brand}_{model}"
-    
-    filtered = data.copy()
-    if brand:
-        filtered = filtered[filtered['brand'] == brand]
-    if model:
-        filtered = filtered[filtered['model'] == model]
 
-    if filtered.empty:
-        return {
-            'error': "No data available for the specified brand and model.",
-            'forecast': None,
-            'cv_scores': None
-        }
 
-    # Set random seed for numpy operations
-    np.random.seed(42)
-    
-    # Feature engineering with simplified features
-    filtered['date'] = pd.to_datetime(filtered['date'])
-    filtered['day_of_week'] = filtered['date'].dt.dayofweek
-    filtered['month'] = filtered['date'].dt.month
-    filtered['is_weekend'] = filtered['day_of_week'].isin([5, 6]).astype(int)
-    
-    # Calculate baseline metrics
-    overall_mean = filtered['quantity_sold'].mean()
-    recent_mean = filtered['quantity_sold'].tail(30).mean()
-    
-    # Create base features
-    feature_cols = ['day_of_week', 'month', 'is_weekend']
-    
-    # Calculate moving averages
-    filtered['ma7'] = filtered['quantity_sold'].rolling(window=7, min_periods=1).mean()
-    filtered['ma30'] = filtered['quantity_sold'].rolling(window=30, min_periods=1).mean()
-    feature_cols.extend(['ma7', 'ma30'])
-    
-    X = filtered[feature_cols]
-    y = filtered['quantity_sold']
 
-    # Get or create cached model
-    if prediction_key not in _MODEL_CACHE:
-        _MODEL_CACHE[prediction_key] = GradientBoostingRegressor(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=3,
-            random_state=42
-        )
-        
-    model = _MODEL_CACHE[prediction_key]
-    
-    # Prepare future data
-    last_date = filtered['date'].iloc[-1]
-    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1),
-                               periods=forecast_days, freq='D')
-    
-    future_data = pd.DataFrame({'date': future_dates})
-    future_data['day_of_week'] = future_data['date'].dt.dayofweek
-    future_data['month'] = future_data['date'].dt.month
-    future_data['is_weekend'] = future_data['day_of_week'].isin([5, 6]).astype(int)
-    
-    # Use recent averages for MA features
-    future_data['ma7'] = filtered['quantity_sold'].tail(7).mean()
-    future_data['ma30'] = filtered['quantity_sold'].tail(30).mean()
-    
-    # If we have base predictions, use them
-    if prediction_key in _BASE_PREDICTIONS:
-        predictions = _BASE_PREDICTIONS[prediction_key]
-    else:
-        # Train model and make predictions
-        model.fit(X, y)
-        predictions = model.predict(future_data[feature_cols])
-        _BASE_PREDICTIONS[prediction_key] = predictions
-    
-    # Apply consistency adjustments
-    if prediction_key in _LAST_PREDICTIONS:
-        last_preds = _LAST_PREDICTIONS[prediction_key]
-        # Strong smoothing with previous predictions (90% previous, 10% new)
-        predictions = 0.9 * last_preds + 0.1 * predictions
-    
-    # Ensure predictions are within reasonable bounds
-    min_val = max(1.0, overall_mean * 0.5)  # At least 1.0 or 50% of mean
-    max_val = overall_mean * 2.0  # Maximum 200% of mean
-    predictions = np.clip(predictions, min_val, max_val)
-    
-    # Apply day-of-week patterns consistently
-    dow_patterns = filtered.groupby('day_of_week')['quantity_sold'].mean()
-    dow_factors = dow_patterns / dow_patterns.mean()
-    
-    for i, date in enumerate(future_dates):
-        predictions[i] *= dow_factors.get(date.dayofweek, 1.0)
-    
-    # Round predictions to 2 decimal places
-    final_predictions = np.round(predictions, 2)
-    
-    # Store predictions for next run
-    _LAST_PREDICTIONS[prediction_key] = final_predictions
-    
-    # Create forecast DataFrame
-    forecast = pd.DataFrame({
-        'date': future_dates,
-        'predicted_sales': final_predictions
-    })
-
-    return {
-        'forecast': forecast.to_dict('records'),
-        'cv_scores': {
-            'mean': float(overall_mean),
-            'recent_mean': float(recent_mean)
-        }
-    }
-
-def demand_analysis(data, brand, model):
-    filtered = data[(data['brand'] == brand) & (data['model'] == model)].copy()
-    
-    if filtered.empty:
-        return {
-            'error': "No data available for the specified brand and model.",
-            'stats': None,
-            'moving_averages': None
-        }
-
-    # Calculate statistics
-    stats_dict = {
-        'average_sales': float(filtered['quantity_sold'].mean()),
-        'median_sales': float(filtered['quantity_sold'].median()),
-        'maximum_sales': float(filtered['quantity_sold'].max()),
-        'minimum_sales': float(filtered['quantity_sold'].min()),
-        'standard_deviation': float(filtered['quantity_sold'].std()),
-        'total_sales': float(filtered['quantity_sold'].sum())
-    }
-
-    # Calculate moving averages
-    filtered['MA7'] = filtered['quantity_sold'].rolling(window=7, center=True).mean()
-    filtered['MA30'] = filtered['quantity_sold'].rolling(window=30, center=True).mean()
-    
-    # Get recent moving averages
-    ma_data = filtered[['date', 'quantity_sold', 'MA7', 'MA30']].tail(10)
-
-    return {
-        'stats': stats_dict,
-        'moving_averages': ma_data.to_dict('records')
-    }
-
-def stockout_prediction(data, brand, model, current_stock, reorder_threshold, lead_time):
-    filtered = data[(data['brand'] == brand) & (data['model'] == model)].copy()
-    
-    if filtered.empty:
-        return {
-            'error': "No data available for the specified brand and model.",
-            'metrics': None,
-            'recommendations': None
-        }
-
-    # Calculate metrics
-    avg_daily_sales = float(filtered['quantity_sold'].mean())
-    std_daily_sales = float(filtered['quantity_sold'].std())
-    max_daily_sales = float(filtered['quantity_sold'].max())
-    safety_stock = float(2 * std_daily_sales * np.sqrt(lead_time))
-    reorder_point = float((avg_daily_sales * lead_time) + safety_stock)
-    
-    # Calculate days until stockout
-    avg_case_days = float(current_stock / avg_daily_sales if avg_daily_sales > 0 else float('inf'))
-    worst_case_days = float(current_stock / max_daily_sales if max_daily_sales > 0 else float('inf'))
-    
-    metrics = {
-        'current_stock': current_stock,
-        'avg_daily_sales': avg_daily_sales,
-        'max_daily_sales': max_daily_sales,
-        'safety_stock': safety_stock,
-        'reorder_point': reorder_point,
-        'avg_case_days': avg_case_days,
-        'worst_case_days': worst_case_days
-    }
-
-    # Generate recommendations
-    if current_stock <= reorder_point:
-        recommendations = {
-            'status': 'alert',
-            'message': f"Stock level ({current_stock}) is at or below reorder point ({reorder_point:.1f})",
-            'action': f"Place order within {lead_time} days to avoid stockout"
-        }
-    else:
-        days_until_reorder = (current_stock - reorder_point) / avg_daily_sales
-        recommendations = {
-            'status': 'ok',
-            'message': "Stock level is adequate",
-            'action': f"Next reorder in approximately {days_until_reorder:.1f} days"
-        }
-
-    return {
-        'metrics': metrics,
-        'recommendations': recommendations
-    }
+def create_lstm_model(input_shape):
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=1))  # Prediction of the sales
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
 
 @app.route('/api/sales/forecast', methods=['POST'])
 def sales_forecast():
@@ -531,123 +348,173 @@ def sales_forecast():
         # Convert date and sort
         df['Date'] = pd.to_datetime(df['date'])
         df = df.sort_values(by='Date')
-        
-        # Basic time features
-        df['Year'] = df['Date'].dt.year
-        df['Month'] = df['Date'].dt.month
-        df['Day'] = df['Date'].dt.day
-        df['Weekday'] = df['Date'].dt.weekday
-        df['Week'] = df['Date'].dt.isocalendar().week
-        df['Quarter'] = df['Date'].dt.quarter
 
-        # Define column mappings (adjust these based on your actual column names)
-        categorical_columns = [
-            "brand", "model", "vehicle_type", "fuel_type", "city", "dealer_type", 
-            "customer_age_group", "customer_gender", "occupation_of_buyer", "payment_mode", 
-            "festive_season_purchase", "advertisement_type", "service_availability", 
-            "weather_condition", "road_conditions"
-        ]
-        
-        numerical_columns = [
-            "engine_capacity_cc", "price_inr", "petrol_price_at_purchase", 
-            "competitor_brand_presence", "discounts_offers", "stock_on_date"
-        ]
+        # Calculate time span (in months)
+        min_date = df['Date'].min()
+        max_date = df['Date'].max()
+        time_span_months = (max_date.year - min_date.year) * 12 + max_date.month - min_date.month
 
-        # Handle categorical columns
-        label_encoders = {}
-        for col in categorical_columns:
-            if col in df.columns:
-                df[col] = df[col].astype(str)
-                label_encoders[col] = LabelEncoder()
-                df[col] = label_encoders[col].fit_transform(df[col])
+        if time_span_months > 6:
+            # Use LSTM for more than 6 months of data
+            # Prepare data for LSTM
+            df['quantity_sold'] = df['quantity_sold'].values
+            df = df[['Date', 'quantity_sold']]
+            
+            # Create LSTM input
+            scaler = MinMaxScaler(feature_range=(0, 1))
+            scaled_data = scaler.fit_transform(df[['quantity_sold']])
 
-        # Handle numerical columns
-        scaler = MinMaxScaler()
-        numerical_cols_present = [col for col in numerical_columns if col in df.columns]
-        if numerical_cols_present:
-            df[numerical_cols_present] = scaler.fit_transform(df[numerical_cols_present])
+            train_data = scaled_data[:-forecast_days]
+            test_data = scaled_data[-forecast_days:]
 
-        # Add rolling averages for smoothing
-        df['MA7'] = df['quantity_sold'].rolling(window=7, min_periods=1).mean()
-        df['MA30'] = df['quantity_sold'].rolling(window=30, min_periods=1).mean()
-        
-        # Prepare features
-        feature_columns = ['Year', 'Month', 'Day', 'Weekday', 'Week', 'Quarter']
-        feature_columns.extend([col for col in categorical_columns if col in df.columns])
-        feature_columns.extend([col for col in numerical_cols_present if col in df.columns])
+            # Prepare training data for LSTM
+            X_train, y_train = [], []
+            for i in range(60, len(train_data)):
+                X_train.append(train_data[i-60:i, 0])  # last 60 days
+                y_train.append(train_data[i, 0])
+            X_train, y_train = np.array(X_train), np.array(y_train)
 
-        X = df[feature_columns]
-        y = df['quantity_sold']
+            # Reshaping for LSTM input
+            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
 
-        # Train model with same parameters as notebook
-        model = GradientBoostingRegressor(
-            n_estimators=200,
-            learning_rate=0.1,
-            max_depth=4,
-            random_state=42
-        )
-        model.fit(X, y)
+            # Create and train LSTM model
+            model = create_lstm_model((X_train.shape[1], 1))
+            model.fit(X_train, y_train, epochs=20, batch_size=32)
 
-        # Generate future dates
-        last_date = df['Date'].max()
-        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), 
-                                   periods=forecast_days, freq='D')
+            # Forecasting for next 'forecast_days' days
+            forecast_data = scaled_data[-60:].reshape(1, -1)
+            forecast_data = np.reshape(forecast_data, (forecast_data.shape[1], 1))
+            predicted_sales = model.predict(forecast_data)
 
-        # Prepare future data
-        future_data = pd.DataFrame()
-        future_data['Date'] = future_dates
-        future_data['Year'] = future_data['Date'].dt.year
-        future_data['Month'] = future_data['Date'].dt.month
-        future_data['Day'] = future_data['Date'].dt.day
-        future_data['Weekday'] = future_data['Date'].dt.weekday
-        future_data['Week'] = future_data['Date'].dt.isocalendar().week
-        future_data['Quarter'] = future_data['Date'].dt.quarter
+            # Convert back to original scale
+            predicted_sales = scaler.inverse_transform(predicted_sales)
 
-        # Copy last known values for categorical and numerical columns
-        last_entry = df.iloc[-1]
-        for col in feature_columns:
-            if col not in future_data.columns:
-                future_data[col] = last_entry[col]
-
-        # Ensure columns match training data
-        future_data = future_data[feature_columns]
-
-        # Make predictions
-        predictions = model.predict(future_data)
-        predictions = np.round(predictions, 2)
-
-        # Calculate accuracy metrics
-        y_pred = model.predict(X)
-        r2 = r2_score(y, y_pred)
-        mae = mean_absolute_error(y, y_pred)
-
-        # Prepare response
-        response = {
-            'forecast_data': [{
+            # Prepare response for LSTM model
+            future_dates = pd.date_range(start=max_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+            forecast_data = [{
                 'date': date.strftime('%Y-%m-%d'),
-                'predicted_sales': float(sales)
-            } for date, sales in zip(future_dates, predictions)],
-            'historical_data': [{
-                'date': date.strftime('%Y-%m-%d'),
-                'actual_sales': float(sales),
-                'ma7': float(ma7),
-                'ma30': float(ma30)
-            } for date, sales, ma7, ma30 in zip(df['Date'], 
-                                              df['quantity_sold'],
-                                              df['MA7'],
-                                              df['MA30'])],
-            'accuracy': {
-                'r2_score': float(r2),
-                'mean_absolute_error': float(mae)
+                'predicted_sales': float(predicted_sales[i][0])
+            } for i, date in enumerate(future_dates)]
+
+            return jsonify({'forecast_data': forecast_data})
+
+        else:
+            # Use Gradient Boosting for less than 6 months of data
+            df['Year'] = df['Date'].dt.year
+            df['Month'] = df['Date'].dt.month
+            df['Day'] = df['Date'].dt.day
+            df['Weekday'] = df['Date'].dt.weekday
+            df['Week'] = df['Date'].dt.isocalendar().week
+            df['Quarter'] = df['Date'].dt.quarter
+
+            categorical_columns = [
+                "brand", "model", "vehicle_type", "fuel_type", "city", "dealer_type", 
+                "customer_age_group", "customer_gender", "occupation_of_buyer", "payment_mode", 
+                "festive_season_purchase", "advertisement_type", "service_availability", 
+                "weather_condition", "road_conditions"
+            ]
+            
+            numerical_columns = [
+                "engine_capacity_cc", "price_inr", "petrol_price_at_purchase", 
+                "competitor_brand_presence", "discounts_offers", "stock_on_date"
+            ]
+
+            # Handle categorical columns
+            label_encoders = {}
+            for col in categorical_columns:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+                    label_encoders[col] = LabelEncoder()
+                    df[col] = label_encoders[col].fit_transform(df[col])
+
+            # Handle numerical columns
+            scaler = MinMaxScaler()
+            numerical_cols_present = [col for col in numerical_columns if col in df.columns]
+            if numerical_cols_present:
+                df[numerical_cols_present] = scaler.fit_transform(df[numerical_cols_present])
+
+            # Add rolling averages for smoothing
+            df['MA7'] = df['quantity_sold'].rolling(window=7, min_periods=1).mean()
+            df['MA30'] = df['quantity_sold'].rolling(window=30, min_periods=1).mean()
+            
+            # Prepare features
+            feature_columns = ['Year', 'Month', 'Day', 'Weekday', 'Week', 'Quarter']
+            feature_columns.extend([col for col in categorical_columns if col in df.columns])
+            feature_columns.extend([col for col in numerical_cols_present if col in df.columns])
+
+            X = df[feature_columns]
+            y = df['quantity_sold']
+
+            # Train model with same parameters as notebook
+            model = GradientBoostingRegressor(
+                n_estimators=200,
+                learning_rate=0.1,
+                max_depth=4,
+                random_state=42
+            )
+            model.fit(X, y)
+
+            # Generate future dates
+            last_date = df['Date'].max()
+            future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), 
+                                       periods=forecast_days, freq='D')
+
+            # Prepare future data
+            future_data = pd.DataFrame()
+            future_data['Date'] = future_dates
+            future_data['Year'] = future_data['Date'].dt.year
+            future_data['Month'] = future_data['Date'].dt.month
+            future_data['Day'] = future_data['Date'].dt.day
+            future_data['Weekday'] = future_data['Date'].dt.weekday
+            future_data['Week'] = future_data['Date'].dt.isocalendar().week
+            future_data['Quarter'] = future_data['Date'].dt.quarter
+
+            # Copy last known values for categorical and numerical columns
+            last_entry = df.iloc[-1]
+            for col in feature_columns:
+                if col not in future_data.columns:
+                    future_data[col] = last_entry[col]
+
+            # Ensure columns match training data
+            future_data = future_data[feature_columns]
+
+            # Make predictions
+            predictions = model.predict(future_data)
+            predictions = np.round(predictions, 2)
+
+            # Calculate accuracy metrics
+            y_pred = model.predict(X)
+            r2 = r2_score(y, y_pred)
+            mae = mean_absolute_error(y, y_pred)
+
+            # Prepare response
+            response = {
+                'forecast_data': [{
+                    'date': date.strftime('%Y-%m-%d'),
+                    'predicted_sales': float(sales)
+                } for date, sales in zip(future_dates, predictions)],
+                'historical_data': [{
+                    'date': date.strftime('%Y-%m-%d'),
+                    'actual_sales': float(sales),
+                    'ma7': float(ma7),
+                    'ma30': float(ma30)
+                } for date, sales, ma7, ma30 in zip(df['Date'], 
+                                                  df['quantity_sold'],
+                                                  df['MA7'],
+                                                  df['MA30'])],
+                'accuracy': {
+                    'r2_score': float(r2),
+                    'mean_absolute_error': float(mae)
+                }
             }
-        }
 
-        return jsonify(response)
+            return jsonify(response)
 
     except Exception as e:
         print(f"Forecast error: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/sales/demand-analysis', methods=['POST'])
 def demand_analysis():

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import {
   Box, Typography, Paper, Grid, CircularProgress, Chip, 
   ToggleButton, ToggleButtonGroup, Fade, Zoom,
-  Card, CardContent
+  Card, CardContent, List, ListItem, ListItemIcon, ListItemText
 } from '@mui/material';
 import {
   PieChart, Pie, Cell, Sector,
@@ -13,9 +13,10 @@ import {
   LineChart, Line, CartesianGrid, Scatter, ScatterChart,
   ComposedChart, Treemap
 } from 'recharts';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
 
-const COLORS = ['#4CAF50', '#FFC107', '#F44336'];
-const RADAR_COLORS = ['#2196F3', '#FF4081', '#FFB74D'];
+const COLORS = ['#00C853', '#FFD600', '#FF3D00'];  // Brighter green, yellow, red
+const RADAR_COLORS = ['#2196F3', '#E91E63', '#FF9800'];  // Brighter blue, pink, orange
 
 const ReviewAnalytics = () => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -24,60 +25,59 @@ const ReviewAnalytics = () => {
   const location = useLocation();
   const analysis = location.state?.analysis;
 
-useEffect(() => {
-  if (analysis?.improvement_suggestion) {
-    // Process and clean suggestions
-    const suggestions = analysis.improvement_suggestion
-      .split('\n')
-      .map(suggestion => suggestion.trim())
-      .filter(suggestion => suggestion.length > 0)
-      .filter(suggestion => !isUnwanted(suggestion)) // Filter out unwanted sentences
-      .map((suggestion, index) => ({
-        id: index,
-        text: suggestion,
-        category: getCategoryFromSuggestion(suggestion),
-        priority: getPriorityFromSuggestion(suggestion)
-      }))
-      .sort((a, b) => priorityValue(b.priority) - priorityValue(a.priority)); // Sort by priority
+  useEffect(() => {
+    if (analysis?.improvement_suggestion) {
+      // Process and clean suggestions
+      const suggestions = analysis.improvement_suggestion
+        .split('\n')
+        .map(suggestion => suggestion.trim())
+        .filter(suggestion => suggestion.length > 0)
+        .filter(suggestion => !isUnwanted(suggestion)) // Filter out unwanted sentences
+        .map((suggestion, index) => ({
+          id: index,
+          text: suggestion,
+          category: getCategoryFromSuggestion(suggestion),
+          priority: getPriorityFromSuggestion(suggestion)
+        }))
+        .sort((a, b) => priorityValue(b.priority) - priorityValue(a.priority)); // Sort by priority
 
-    setProcessedSuggestions(suggestions);
-  }
-}, [analysis]);
+      setProcessedSuggestions(suggestions);
+    }
+  }, [analysis]);
 
-// Helper function to filter out unwanted sentences
-const isUnwanted = (suggestion) => {
-  // Filter based on unwanted keywords or patterns
-  const unwantedPatterns = [
-    'please', // Example: remove suggestions with 'please'
-    'thanks', // Example: remove suggestions with 'thanks'
-    'do better' // Example: remove any suggestions mentioning 'do better'
-  ];
+  // Helper function to filter out unwanted sentences
+  const isUnwanted = (suggestion) => {
+    // Filter based on unwanted keywords or patterns
+    const unwantedPatterns = [
+      'please', // Example: remove suggestions with 'please'
+      'thanks', // Example: remove suggestions with 'thanks'
+      'do better' // Example: remove any suggestions mentioning 'do better'
+    ];
 
-  return unwantedPatterns.some(pattern => suggestion.toLowerCase().includes(pattern));
-};
+    return unwantedPatterns.some(pattern => suggestion.toLowerCase().includes(pattern));
+  };
 
-// Helper function to map priority strings to numerical values for sorting
-const priorityValue = (priority) => {
-  if (priority === 'High') return 3;
-  if (priority === 'Medium') return 2;
-  return 1; // Low priority
-};
+  // Helper function to map priority strings to numerical values for sorting
+  const priorityValue = (priority) => {
+    if (priority === 'High') return 3;
+    if (priority === 'Medium') return 2;
+    return 1; // Low priority
+  };
 
-// Keep the original logic for category and priority assignment
-const getCategoryFromSuggestion = (suggestion) => {
-  if (suggestion.toLowerCase().includes('product')) return 'Product';
-  if (suggestion.toLowerCase().includes('service')) return 'Service';
-  if (suggestion.toLowerCase().includes('customer')) return 'Customer';
-  return 'General';
-};
+  // Keep the original logic for category and priority assignment
+  const getCategoryFromSuggestion = (suggestion) => {
+    if (suggestion.toLowerCase().includes('product')) return 'Product';
+    if (suggestion.toLowerCase().includes('service')) return 'Service';
+    if (suggestion.toLowerCase().includes('customer')) return 'Customer';
+    return 'General';
+  };
 
-const getPriorityFromSuggestion = (suggestion) => {
-  const length = suggestion.length;
-  if (length > 100) return 'High';
-  if (length > 50) return 'Medium';
-  return 'Low';
-};
-
+  const getPriorityFromSuggestion = (suggestion) => {
+    const length = suggestion.length;
+    if (length > 100) return 'High';
+    if (length > 50) return 'Medium';
+    return 'Low';
+  };
 
   if (!analysis) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
 
@@ -101,40 +101,39 @@ const getPriorityFromSuggestion = (suggestion) => {
 
   // Custom active shape for interactive pie chart
   const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
-  return (
-    <g>
-      <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} fontSize="16">
-        {payload.name}
-      </text>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={outerRadius + 6}
-        outerRadius={outerRadius + 10}
-        fill={fill}
-      />
-      <text x={cx} y={cy - 20} textAnchor="middle" fill="#333" fontSize="14">
-        {(percent * 100).toFixed(1)}%
-      </text>
-      <text x={cx} y={cy + 20} textAnchor="middle" fill="#666" fontSize="12">
-        {value} reviews
-      </text>
-    </g>
-  );
-};
-
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+    return (
+      <g>
+        <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} fontSize="16">
+          {payload.name}
+        </text>
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+        />
+        <Sector
+          cx={cx}
+          cy={cy}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          innerRadius={outerRadius + 6}
+          outerRadius={outerRadius + 10}
+          fill={fill}
+        />
+        <text x={cx} y={cy - 20} textAnchor="middle" fill="#333" fontSize="14">
+          {(percent * 100).toFixed(1)}%
+        </text>
+        <text x={cx} y={cy + 20} textAnchor="middle" fill="#666" fontSize="12">
+          {value} reviews
+        </text>
+      </g>
+    );
+  };
 
   // Treemap data for problem categories
   const treemapData = Object.entries(
@@ -145,275 +144,301 @@ const getPriorityFromSuggestion = (suggestion) => {
   ).map(([name, size]) => ({ name, size }));
 
   return (
-    <Box
-      sx={{
-        p: 4,
-        backgroundColor: "#f8f9fa",
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-      }}
-    >
-      {/* Header and Controls */}
+    <Box sx={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+      color: '#ffffff',
+      p: 4
+    }}>
       <Typography
         variant="h4"
-        gutterBottom
         sx={{
+          background: 'linear-gradient(45deg, #4fc3f7 30%, #00b0ff 90%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textAlign: 'center',
           mb: 4,
-          color: "#1a237e",
-          textAlign: "center",
-          fontWeight: "bold",
-          textShadow: "2px 2px 4px rgba(0,0,0,0.1)",
+          fontWeight: 700,
+          letterSpacing: '2px',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
         }}
       >
-        Review Analysis Dashboard
+        REVIEW ANALYTICS DASHBOARD
       </Typography>
 
       <ToggleButtonGroup
         value={viewMode}
         exclusive
         onChange={(e, newMode) => setViewMode(newMode)}
-        sx={{ mb: 3, display: "flex", justifyContent: "center" }}
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          mb: 4,
+          '& .MuiToggleButton-root': {
+            color: '#ffffff',
+            borderColor: 'rgba(255,255,255,0.2)',
+            px: 4,
+            py: 1,
+            '&.Mui-selected': {
+              background: 'linear-gradient(45deg, rgba(79, 195, 247, 0.2) 30%, rgba(0, 176, 255, 0.2) 90%)',
+              color: '#4fc3f7',
+              fontWeight: 600
+            },
+            '&:hover': {
+              background: 'rgba(79, 195, 247, 0.1)'
+            }
+          }
+        }}
       >
-        <ToggleButton value="sentiment">Sentiment Analysis</ToggleButton>
-        <ToggleButton value="problems">Problem Analysis</ToggleButton>
-        <ToggleButton value="suggestions">Improvement Suggestions</ToggleButton>
+        <ToggleButton value="sentiment">SENTIMENT ANALYSIS</ToggleButton>
+        <ToggleButton value="problems">PROBLEM ANALYSIS</ToggleButton>
+        <ToggleButton value="suggestions">IMPROVEMENT SUGGESTIONS</ToggleButton>
       </ToggleButtonGroup>
 
-      {/* Dynamic Content Based on View Mode */}
-      <Grid container spacing={3}>
-        {viewMode === "sentiment" && (
-          <>
-            {/* Interactive Sentiment Pie Chart */}
-            <Grid item xs={12} md={6}>
-              <Zoom in={viewMode === "sentiment"}>
-                <Paper
-                  elevation={3}
-                  sx={{
-                    p: 3,
-                    height: "400px",
-                    borderRadius: 2,
-                    background:
-                      "linear-gradient(to right bottom, #ffffff, #fafafa)",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{ color: "#1a237e", fontWeight: "bold" }}
+      {viewMode === "sentiment" && (
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <Paper
+              elevation={8}
+              sx={{
+                p: 4,
+                height: '400px',
+                background: 'linear-gradient(135deg, #2d2d2d 0%, #353535 100%)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                '& text': {
+                  fill: '#ffffff !important'
+                }
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#ffffff', mb: 2, fontWeight: 600 }}>
+                Sentiment Distribution
+              </Typography>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    activeIndex={activeIndex}
+                    activeShape={renderActiveShape}
+                    data={pieData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    onMouseEnter={(_, index) => setActiveIndex(index)}
                   >
-                    Sentiment Distribution
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        activeIndex={activeIndex}
-                        activeShape={renderActiveShape}
-                        data={pieData}
-                        innerRadius={60}
-                        outerRadius={80}
-                        dataKey="value"
-                        onMouseEnter={(_, index) => setActiveIndex(index)}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Zoom>
-            </Grid>
-
-            {/* Sentiment Composition Chart */}
-            <Grid item xs={12} md={6}>
-              <Zoom in={viewMode === "sentiment"}>
-                <Paper
-                  elevation={3}
-                  sx={{ p: 3, height: "400px", borderRadius: 2 }}
-                >
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{ color: "#1a237e", fontWeight: "bold" }}
-                  >
-                    Sentiment Composition
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={pieData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="value" fill="#8884d8" />
-                      <Line type="monotone" dataKey="value" stroke="#ff7300" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Zoom>
-            </Grid>
-          </>
-        )}
-
-        {viewMode === "problems" && (
-          <>
-            {/* Problem Categories Treemap
-            <Grid item xs={12} md={6}>
-              <Fade in={viewMode === "problems"}>
-                <Paper
-                  elevation={3}
-                  sx={{ p: 3, height: "400px", borderRadius: 2 }}
-                >
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{ color: "#1a237e", fontWeight: "bold" }}
-                  >
-                    Problem Categories
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <Treemap
-                      data={treemapData}
-                      dataKey="size"
-                      ratio={4 / 3}
-                      stroke="#fff"
-                      fill="#8884d8"
-                    >
-                      <Tooltip />
-                    </Treemap>
-                  </ResponsiveContainer>
-                </Paper>
-              </Fade>
-            </Grid> */}
-
-            {/* Problem Impact Radar */}
-            <Grid item xs={12} md={6}>
-              <Fade in={viewMode === "problems"}>
-                <Paper
-                  elevation={3}
-                  sx={{ p: 3, height: "400px", borderRadius: 2 }}
-                >
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{ color: "#1a237e", fontWeight: "bold" }}
-                  >
-                    Problem Impact Analysis
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart data={problemsData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="name" />
-                      <PolarRadiusAxis />
-                      <Radar
-                        name="Frequency"
-                        dataKey="count"
-                        stroke="#8884d8"
-                        fill="#8884d8"
-                        fillOpacity={0.6}
+                    {pieData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[index]} 
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth={2}
                       />
-                      <Radar
-                        name="Impact"
-                        dataKey="impact"
-                        stroke="#82ca9d"
-                        fill="#82ca9d"
-                        fillOpacity={0.6}
-                      />
-                      <Legend />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Fade>
-            </Grid>
-          </>
-        )}
-
-        {viewMode === "suggestions" && (
-          <Grid item xs={12}>
-            <Fade in={viewMode === "suggestions"}>
-              <Paper
-                elevation={3}
-                sx={{
-                  p: 4,
-                  borderRadius: 2,
-                  background:
-                    "linear-gradient(to right bottom, #ffffff, #fafafa)",
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ color: "#1a237e", fontWeight: "bold" }}
-                >
-                  Key Improvement Suggestions
-                </Typography>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                  }}
-                >
-                  {processedSuggestions.map((suggestion, index) => (
-                    <Card key={index} elevation={2}>
-                      <CardContent>
-                        <Typography variant="body1" gutterBottom>
-                          {suggestion.text}
-                        </Typography>
-                        <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
-                          <Chip
-                            label={suggestion.category}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                          <Chip
-                            label={suggestion.priority}
-                            size="small"
-                            color={
-                              suggestion.priority === "High"
-                                ? "error"
-                                : suggestion.priority === "Medium"
-                                ? "warning"
-                                : "success"
-                            }
-                          />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
-              </Paper>
-            </Fade>
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#353535', 
+                      border: 'none', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                      color: '#ffffff'
+                    }} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Paper>
           </Grid>
-        )}
-      </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper
+              elevation={8}
+              sx={{
+                p: 4,
+                height: '400px',
+                background: 'linear-gradient(135deg, #2d2d2d 0%, #353535 100%)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                '& text': {
+                  fill: '#ffffff !important'
+                }
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#ffffff', mb: 2, fontWeight: 600 }}>
+                Sentiment Composition
+              </Typography>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={pieData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#fff"
+                    tick={{ fill: '#fff' }}
+                  />
+                  <YAxis stroke="#fff" tick={{ fill: '#fff' }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1a1a1a',
+                      border: '1px solid #404040',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="#4fc3f7"
+                    radius={[4, 4, 0, 0]}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          index === 0
+                            ? '#81c784'
+                            : index === 1
+                            ? '#4fc3f7'
+                            : '#ff8a65'
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
+      {viewMode === "problems" && (
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <Paper
+              elevation={8}
+              sx={{
+                p: 4,
+                height: '400px',
+                background: 'linear-gradient(135deg, #2d2d2d 0%, #353535 100%)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                '& text': {
+                  fill: '#ffffff !important'
+                }
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#ffffff', mb: 2, fontWeight: 600 }}>
+                Problem Categories
+              </Typography>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={treemapData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="size"
+                  >
+                    {treemapData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1a1a1a',
+                      border: '1px solid #404040',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    formatter={(value) => <span style={{ color: '#fff' }}>{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
+      {viewMode === "suggestions" && (
+        <Box sx={{ mt: 2 }}>
+          <Paper
+            elevation={8}
+            sx={{
+              p: 4,
+              background: 'linear-gradient(135deg, #2d2d2d 0%, #353535 100%)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              '& text': {
+                fill: '#ffffff !important'
+              }
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                color: '#4fc3f7',
+                mb: 3,
+                fontWeight: 500,
+                textAlign: 'center'
+              }}
+            >
+              Key Improvement Suggestions
+            </Typography>
+            <List>
+              {processedSuggestions.map((suggestion, index) => (
+                <ListItem
+                  key={index}
+                  sx={{
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    py: 2
+                  }}
+                >
+                  <ListItemIcon>
+                    <LightbulbIcon sx={{ color: '#4fc3f7' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={suggestion.text}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        color: '#fff'
+                      }
+                    }}
+                  />
+                  <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
+                    <Chip
+                      label={suggestion.category}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={suggestion.priority}
+                      size="small"
+                      color={
+                        suggestion.priority === "High"
+                          ? "error"
+                          : suggestion.priority === "Medium"
+                          ? "warning"
+                          : "success"
+                      }
+                    />
+                  </Box>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 };
 
-// Helper functions for suggestion processing
-const getCategoryFromSuggestion = (suggestion) => {
-  // Add logic to categorize suggestions
-  if (suggestion.toLowerCase().includes('product')) return 'Product';
-  if (suggestion.toLowerCase().includes('service')) return 'Service';
-  if (suggestion.toLowerCase().includes('customer')) return 'Customer';
-  return 'General';
-};
-
-const getPriorityFromSuggestion = (suggestion) => {
-  // Add logic to determine priority
-  const length = suggestion.length;
-  if (length > 100) return 'High';
-  if (length > 50) return 'Medium';
-  return 'Low';
-};
-
-export default ReviewAnalytics
+export default ReviewAnalytics;

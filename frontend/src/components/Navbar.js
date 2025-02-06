@@ -1,18 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Box,
+  Menu,
+  MenuItem,
+  Container,
+  Badge,
+  Avatar
+} from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import MenuIcon from "@mui/icons-material/Menu";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import LogoutIcon from '@mui/icons-material/Logout';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import { useNavigate } from "react-router-dom";
 import { cartService } from "../services/api";
-import techIcon from '../assets/icons/tech.png';
-import dashboardIcon from '../assets/icons/dashboard.png';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [cartItemCount, setCartItemCount] = useState(0);
-  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const role = localStorage.getItem("role");
   const token = localStorage.getItem("token");
 
@@ -23,135 +38,210 @@ const Navbar = () => {
     navigate("/login");
   };
 
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
   const adminMenuItems = [
-    { 
-      label: "Dashboard", 
-      path: "/admin",
-      icon: <img src={dashboardIcon} alt="Dashboard" className="w-4 h-4 object-contain" />
-    },
-    { label: "Orders", path: "/admin/orders" },
-    { label: "Products", path: "/products" },
-    { label: "Add Product", path: "/admin/add-product" },
+    { label: "Dashboard", path: "/admin", icon: <DashboardIcon /> },
+    { label: "Orders", path: "/admin/orders", icon: <LocalShippingIcon /> },
+    { label: "Products", path: "/products", icon: <InventoryIcon /> },
+    { label: "Add Product", path: "/admin/add-product", icon: <AddCircleIcon /> },
     { 
       label: "Logout", 
       path: null, 
       action: handleLogout,
-      icon: <LogoutIcon className="w-4 h-4" />,
-      className: "text-red-600 hover:bg-red-50"
+      icon: <LogoutIcon />,
+      color: "error"
     }
   ];
 
   return (
-    <nav className="bg-[#5C7285] shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex items-center space-x-2 flex-shrink-0 transform hover:scale-105 transition-all duration-300">
-            <img 
-              src={techIcon} 
-              alt="Tech Icon" 
-              className="h-10 w-10 object-contain"
+    <AppBar 
+      position="sticky" 
+      sx={{ 
+        background: 'linear-gradient(to right, #1e3c72, #2a5298)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+      }}
+    >
+      <Container maxWidth="xl">
+        <Toolbar sx={{ justifyContent: 'space-between', py: 1 }}>
+          {/* Logo Section */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                transition: 'transform 0.3s ease'
+              }
+            }}
+            onClick={() => navigate("/")}
+          >
+            <TwoWheelerIcon 
+              sx={{ 
+                fontSize: 40, 
+                mr: 2,
+                color: '#fff',
+                filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.2))'
+              }} 
             />
-            <h1
-              className="text-white text-3xl font-extrabold cursor-pointer font-[IBM Plex Mono]"
-              onClick={() => navigate("/")}
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                fontWeight: 700,
+                background: 'linear-gradient(45deg, #fff 30%, #f0f0f0 90%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '1px',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+              }}
             >
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-200 hover:italic transition-all duration-300">
-                TechMart
-              </span>
-            </h1>
-          </div>
+              Royal Enfield
+            </Typography>
+          </Box>
 
-          <div className="flex items-center space-x-6">
+          {/* Navigation Section */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {token ? (
               <>
                 {role === "admin" ? (
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
-                      className="bg-white text-[#5C7285] hover:text-white hover:bg-[#4A5B69] px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 border border-gray-200 hover:border-white/40 hover:scale-105 flex items-center space-x-2"
+                  <Box>
+                    <Button
+                      onClick={handleMenuOpen}
+                      endIcon={<KeyboardArrowDownIcon />}
+                      sx={{
+                        color: 'white',
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: 2,
+                        px: 2,
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.2)',
+                        }
+                      }}
                     >
-     
-                      <span>Admin Menu</span>
-                      {isAdminMenuOpen ? (
-                        <KeyboardArrowUpIcon />
-                      ) : (
-                        <KeyboardArrowDownIcon />
-                      )}
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {isAdminMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                        <div className="py-1">
-                          {adminMenuItems.map((item) => (
-                            <button
-                              key={item.label}
-                              onClick={() => {
-                                if (item.action) {
-                                  item.action();
-                                } else {
-                                  navigate(item.path);
-                                }
-                                setIsAdminMenuOpen(false);
-                              }}
-                              className={`block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#5C7285] transition-all duration-300 flex items-center space-x-2 ${item.className || ''}`}
-                            >
-                              {item.icon && <span>{item.icon}</span>}
-                              <span>{item.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                      Admin Menu
+                    </Button>
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={Boolean(anchorEl)}
+                      onClose={handleMenuClose}
+                      sx={{
+                        '& .MuiPaper-root': {
+                          borderRadius: 2,
+                          minWidth: 200,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                          mt: 1
+                        }
+                      }}
+                    >
+                      {adminMenuItems.map((item) => (
+                        <MenuItem
+                          key={item.label}
+                          onClick={() => {
+                            if (item.action) {
+                              item.action();
+                            } else {
+                              navigate(item.path);
+                            }
+                            handleMenuClose();
+                          }}
+                          sx={{
+                            gap: 2,
+                            py: 1.5,
+                            color: item.color === 'error' ? 'error.main' : 'inherit',
+                            '&:hover': {
+                              backgroundColor: item.color === 'error' ? 'error.lighter' : 'action.hover'
+                            }
+                          }}
+                        >
+                          {item.icon}
+                          <Typography>{item.label}</Typography>
+                        </MenuItem>
+                      ))}
+                    </Menu>
+                  </Box>
                 ) : (
-                  <div className="flex items-center space-x-6">
-                    <button
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Button
                       onClick={() => navigate("/products")}
-                      className="bg-white/10 text-white hover:bg-white hover:text-[#5C7285] px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30 hover:border-white"
+                      sx={{
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.1)'
+                        }
+                      }}
                     >
                       Products
-                    </button>
-                    <button
+                    </Button>
+                    <IconButton
                       onClick={() => navigate("/cart")}
-                      className="text-white hover:bg-white/20 p-3 rounded-full transition-all duration-300 relative group"
+                      sx={{ 
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.1)'
+                        }
+                      }}
                     >
-                      <ShoppingCartIcon className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
-                      {cartItemCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center border-2 border-white animate-pulse">
-                          {cartItemCount}
-                        </span>
-                      )}
-                    </button>
-                    <button
+                      <Badge badgeContent={cartItemCount} color="error">
+                        <ShoppingCartIcon />
+                      </Badge>
+                    </IconButton>
+                    <Button
                       onClick={handleLogout}
-                      className="bg-white text-[#5C7285] hover:bg-red-600 hover:text-white px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/50 hover:scale-105"
+                      startIcon={<LogoutIcon />}
+                      sx={{
+                        color: 'white',
+                        borderRadius: 2,
+                        px: 2,
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.1)'
+                        }
+                      }}
                     >
                       Logout
-                    </button>
-                  </div>
+                    </Button>
+                  </Box>
                 )}
               </>
             ) : (
-              <div className="flex items-center space-x-4">
-                <button
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
                   onClick={() => navigate("/login")}
-                  className="bg-white/10 text-white hover:bg-white hover:text-[#5C7285] px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30 hover:border-white"
+                  variant="text"
+                  sx={{
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
                 >
                   Login
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => navigate("/signup")}
-                  className="bg-white text-[#5C7285] hover:bg-gray-100 px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg hover:shadow-white/30"
+                  variant="contained"
+                  sx={{
+                    backgroundColor: 'white',
+                    color: '#1e3c72',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.9)'
+                    }
+                  }}
                 >
                   Sign Up
-                </button>
-              </div>
+                </Button>
+              </Box>
             )}
-          </div>
-        </div>
-      </div>
-    </nav>
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
   );
 };
 
