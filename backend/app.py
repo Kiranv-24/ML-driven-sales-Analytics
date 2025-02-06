@@ -23,6 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
 import traceback
+import logging
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -322,90 +323,358 @@ def feature_engineering(data):
 
 
 def create_lstm_model(input_shape):
-    model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
-    model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences=False))
-    model.add(Dropout(0.2))
-    model.add(Dense(units=1))  # Prediction of the sales
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.LSTM(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.LSTM(units=50, return_sequences=False))
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.Dense(units=1))  # Prediction of the sales
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
+
+def aggregate_data(data, period='W'):
+    df = pd.DataFrame(data)
+    df['date'] = pd.to_datetime(df['date'])
+    
+    if 'predicted_sales' in df.columns:
+        df = df.rename(columns={'predicted_sales': 'sales'})
+    elif 'actual_sales' in df.columns:
+        df = df.rename(columns={'actual_sales': 'sales'})
+    
+    # Group by period
+    if period == 'W':
+        grouped = df.resample('W', on='date').agg({
+            'sales': ['sum', 'mean', 'std']
+        }).reset_index()
+    else:  # Monthly
+        grouped = df.resample('M', on='date').agg({
+            'sales': ['sum', 'mean', 'std']
+        }).reset_index()
+    
+    grouped.columns = ['date', 'total', 'average', 'std']
+    
+    # Handle NaN values
+    grouped['total'] = grouped['total'].fillna(0)
+    grouped['average'] = grouped['average'].fillna(0)
+    grouped['std'] = grouped['std'].fillna(0)
+    
+    # Calculate growth rates
+    grouped['growth_rate'] = grouped['total'].pct_change() * 100
+    grouped['growth_rate'] = grouped['growth_rate'].fillna(0)
+    
+    # Calculate confidence intervals
+    grouped['lower'] = (grouped['average'] - 1.96 * grouped['std']).clip(lower=0)
+    grouped['upper'] = grouped['average'] + 1.96 * grouped['std']
+    
+    # Convert to records and handle NaN values
+    records = []
+    for record in grouped.to_dict('records'):
+        # Ensure all numeric values are finite
+        cleaned_record = {}
+        for key, value in record.items():
+            if key == 'date':
+                cleaned_record[key] = value.strftime('%Y-%m-%d')
+            else:
+                # Replace NaN, inf, -inf with 0
+                cleaned_record[key] = 0 if not np.isfinite(float(value)) else float(value)
+        records.append(cleaned_record)
+    
+    return records
 
 @app.route('/api/sales/forecast', methods=['POST'])
 def sales_forecast():
     try:
-        data = request.json
+        data = request.get_json()
         if not data or 'sales_data' not in data:
             return jsonify({'error': 'No sales data provided'}), 400
 
-        # Convert sales data to DataFrame
-        df = pd.DataFrame(data['sales_data'])
-        if df.empty:
-            return jsonify({'error': 'Empty sales data provided'}), 400
-
-        forecast_days = int(data.get('forecast_days', 7))
+        print("Received data:", data)
         
-        # Convert date and sort
-        df['Date'] = pd.to_datetime(df['date'])
-        df = df.sort_values(by='Date')
-
-        # Calculate time span (in months)
-        min_date = df['Date'].min()
-        max_date = df['Date'].max()
-        time_span_months = (max_date.year - min_date.year) * 12 + max_date.month - min_date.month
-
-        if time_span_months > 6:
-            # Use LSTM for more than 6 months of data
-            # Prepare data for LSTM
-            df['quantity_sold'] = df['quantity_sold'].values
-            df = df[['Date', 'quantity_sold']]
+        # Convert to DataFrame and ensure proper date parsing
+        df = pd.DataFrame(data['sales_data'])
+        print("Initial DataFrame:", df.head().to_dict())
+        
+        if 'date' not in df.columns:
+            return jsonify({'error': 'Missing date column in sales data'}), 400
             
-            # Create LSTM input
-            scaler = MinMaxScaler(feature_range=(0, 1))
-            scaled_data = scaler.fit_transform(df[['quantity_sold']])
+        # Try parsing dates with multiple formats, starting with YYYY-MM-DD
+        try:
+            # First try YYYY-MM-DD format
+            df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        except ValueError:
+            try:
+                # Then try with mixed format
+                df['date'] = pd.to_datetime(df['date'], format='mixed')
+            except Exception as e:
+                return jsonify({'error': f'Failed to parse dates. Expected format YYYY-MM-DD: {str(e)}'}), 400
+        
+        print("Date parsing successful. Sample dates:", df['date'].head().tolist())
+        
+        # Sort by date
+        df = df.sort_values('date')
+        
+        # Check for missing or invalid dates
+        if df['date'].isnull().any():
+            return jsonify({'error': 'Invalid dates found in data'}), 400
 
-            train_data = scaled_data[:-forecast_days]
-            test_data = scaled_data[-forecast_days:]
+        # Rename quantity_sold to actual_sales if needed
+        if 'quantity_sold' in df.columns:
+            df = df.rename(columns={'quantity_sold': 'actual_sales'})
 
-            # Prepare training data for LSTM
-            X_train, y_train = [], []
-            for i in range(60, len(train_data)):
-                X_train.append(train_data[i-60:i, 0])  # last 60 days
-                y_train.append(train_data[i, 0])
-            X_train, y_train = np.array(X_train), np.array(y_train)
+        # Ensure we have actual_sales column
+        if 'actual_sales' not in df.columns:
+            return jsonify({'error': 'Sales data column not found. Expected "quantity_sold" or "actual_sales"'}), 400
 
-            # Reshaping for LSTM input
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        # Convert actual_sales to numeric, replacing any non-numeric values with NaN
+        df['actual_sales'] = pd.to_numeric(df['actual_sales'], errors='coerce')
+        print("Sales data conversion:", df['actual_sales'].head().tolist())
+        
+        # Remove any rows with NaN values
+        df = df.dropna()
+        print("Data after cleaning:", len(df), "rows remaining")
 
-            # Create and train LSTM model
-            model = create_lstm_model((X_train.shape[1], 1))
-            model.fit(X_train, y_train, epochs=20, batch_size=32)
+        if len(df) == 0:
+            return jsonify({'error': 'No valid data after cleaning'}), 400
 
-            # Forecasting for next 'forecast_days' days
-            forecast_data = scaled_data[-60:].reshape(1, -1)
-            forecast_data = np.reshape(forecast_data, (forecast_data.shape[1], 1))
-            predicted_sales = model.predict(forecast_data)
+        if len(df) < 7:
+            return jsonify({'error': 'Not enough data points for prediction. Need at least 7 days of sales data.'}), 400
+        
+        # Calculate time span for forecasting period
+        min_date = df['date'].min()
+        max_date = df['date'].max()
+        time_span_months = (max_date.year - min_date.year) * 12 + max_date.month - min_date.month
+        print("Time span months:", time_span_months)
+        if time_span_months > 15:
+            try:
+                # For data more than 4 months, predict for 2 years (730 days)
+                forecast_days = 730
+                # Use LSTM for long-term predictions
+                df['quantity_sold'] = df['actual_sales'].values
+                df = df[['date', 'quantity_sold']]
+                
+                # Create LSTM input with smaller sequence length
+                scaler = MinMaxScaler(feature_range=(0, 1))
+                scaled_data = scaler.fit_transform(df[['quantity_sold']])
+                
+                # Use smaller sequence length based on data size
+                sequence_length = min(30, len(scaled_data) // 2)  # Use half of data length or 30, whichever is smaller
+                if sequence_length < 5:  # If we have very few data points, fall back to Gradient Boosting
+                    raise ValueError("Not enough data points for LSTM, falling back to Gradient Boosting")
 
-            # Convert back to original scale
-            predicted_sales = scaler.inverse_transform(predicted_sales)
+                train_data = scaled_data[:-forecast_days] if len(scaled_data) > forecast_days else scaled_data
+                
+                # Prepare training data for LSTM
+                X_train, y_train = [], []
+                for i in range(sequence_length, len(train_data)):
+                    X_train.append(train_data[i-sequence_length:i, 0])
+                    y_train.append(train_data[i, 0])
+                
+                X_train = np.array(X_train)
+                y_train = np.array(y_train)
 
-            # Prepare response for LSTM model
-            future_dates = pd.date_range(start=max_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
-            forecast_data = [{
-                'date': date.strftime('%Y-%m-%d'),
-                'predicted_sales': float(predicted_sales[i][0])
-            } for i, date in enumerate(future_dates)]
+                # Reshaping for LSTM input
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
 
-            return jsonify({'forecast_data': forecast_data})
+                # Create and train LSTM model
+                model = create_lstm_model((sequence_length, 1))
+                model.fit(X_train, y_train, epochs=20, batch_size=32)
+
+                # Prepare last sequence for prediction
+                last_sequence = scaled_data[-sequence_length:]
+                future_predictions = []
+
+                # Generate predictions one by one
+                current_sequence = last_sequence.reshape((1, sequence_length, 1))
+                for _ in range(forecast_days):
+                    next_pred = model.predict(current_sequence)[0]
+                    future_predictions.append(next_pred)
+                    # Update sequence for next prediction
+                    current_sequence = np.roll(current_sequence, -1)
+                    current_sequence[0, -1, 0] = next_pred
+
+                # Convert predictions back to original scale
+                future_predictions = np.array(future_predictions).reshape(-1, 1)
+                predicted_sales = scaler.inverse_transform(future_predictions)
+
+                # Prepare response
+                future_dates = pd.date_range(start=max_date + pd.Timedelta(days=1), 
+                                           periods=forecast_days, freq='D')
+                forecast_data = [{
+                    'date': date.strftime('%Y-%m-%d'),
+                    'predicted_sales': float(0 if not np.isfinite(sales) else sales)
+                } for date, sales in zip(future_dates, predicted_sales)]
+
+                # Prepare historical data
+                historical_data = [{
+                    'date': date.strftime('%Y-%m-%d'),
+                    'actual_sales': float(sales)
+                } for date, sales in zip(df['date'], df['quantity_sold'])]
+
+                # Determine aggregation period based on forecast length
+                period = 'W' if forecast_days <= 45 else 'M'
+                
+                # Aggregate both historical and forecast data
+                aggregated_historical = aggregate_data(historical_data, period)
+                aggregated_forecast = aggregate_data(forecast_data, period)
+
+                response = {
+                    'forecast_data': forecast_data,
+                    'historical_data': historical_data,
+                    'aggregated_data': {
+                        'period': 'weekly' if period == 'W' else 'monthly',
+                        'historical': aggregated_historical,
+                        'forecast': aggregated_forecast
+                    },
+                    'forecast_period': '45 days' if forecast_days <= 45 else '2 years',
+                    'accuracy': {
+                        'r2_score': float(0),
+                        'mean_absolute_error': float(0)
+                    }
+                }
+
+                return jsonify(response)
+
+            except Exception as e:
+                print(f"LSTM Error: {str(e)}, falling back to Gradient Boosting")
+                # Fall back to Gradient Boosting if LSTM fails
+                forecast_days = 45
+                # Use Gradient Boosting for short-term predictions
+                df['Year'] = df['date'].dt.year
+                df['Month'] = df['date'].dt.month
+                df['Day'] = df['date'].dt.day
+                df['Weekday'] = df['date'].dt.weekday
+                df['Week'] = df['date'].dt.isocalendar().week
+                df['Quarter'] = df['date'].dt.quarter
+
+                categorical_columns = [
+                    "brand", "model", "vehicle_type", "fuel_type", "city", "dealer_type", 
+                    "customer_age_group", "customer_gender", "occupation_of_buyer", "payment_mode", 
+                    "festive_season_purchase", "advertisement_type", "service_availability", 
+                    "weather_condition", "road_conditions"
+                ]
+                
+                numerical_columns = [
+                    "engine_capacity_cc", "price_inr", "petrol_price_at_purchase", 
+                    "competitor_brand_presence", "discounts_offers", "stock_on_date"
+                ]
+
+                # Handle categorical columns
+                label_encoders = {}
+                for col in categorical_columns:
+                    if col in df.columns:
+                        df[col] = df[col].astype(str)
+                        label_encoders[col] = LabelEncoder()
+                        df[col] = label_encoders[col].fit_transform(df[col])
+
+                # Handle numerical columns
+                scaler = MinMaxScaler()
+                numerical_cols_present = [col for col in numerical_columns if col in df.columns]
+                if numerical_cols_present:
+                    df[numerical_cols_present] = scaler.fit_transform(df[numerical_cols_present])
+
+                # Add rolling averages for smoothing
+                df['MA7'] = df['actual_sales'].rolling(window=7, min_periods=1).mean()
+                df['MA30'] = df['actual_sales'].rolling(window=30, min_periods=1).mean()
+                
+                # Prepare features
+                feature_columns = ['Year', 'Month', 'Day', 'Weekday', 'Week', 'Quarter']
+                feature_columns.extend([col for col in categorical_columns if col in df.columns])
+                feature_columns.extend([col for col in numerical_cols_present if col in df.columns])
+
+                X = df[feature_columns]
+                y = df['actual_sales']
+
+                # Train model with same parameters as notebook
+                model = GradientBoostingRegressor(
+                    n_estimators=200,
+                    learning_rate=0.1,
+                    max_depth=4,
+                    random_state=42
+                )
+                model.fit(X, y)
+
+                # Generate future dates
+                last_date = df['date'].max()
+                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), 
+                                           periods=forecast_days, freq='D')
+
+                # Prepare future data
+                future_data = pd.DataFrame()
+                future_data['date'] = future_dates
+                future_data['Year'] = future_data['date'].dt.year
+                future_data['Month'] = future_data['date'].dt.month
+                future_data['Day'] = future_data['date'].dt.day
+                future_data['Weekday'] = future_data['date'].dt.weekday
+                future_data['Week'] = future_data['date'].dt.isocalendar().week
+                future_data['Quarter'] = future_data['date'].dt.quarter
+
+                # Copy last known values for categorical and numerical columns
+                last_entry = df.iloc[-1]
+                for col in feature_columns:
+                    if col not in future_data.columns:
+                        future_data[col] = last_entry[col]
+
+                # Ensure columns match training data
+                future_data = future_data[feature_columns]
+
+                # Make predictions
+                predictions = model.predict(future_data)
+                predictions = np.round(predictions, 2)
+
+                # Calculate accuracy metrics
+                y_pred = model.predict(X)
+                r2 = r2_score(y, y_pred)
+                mae = mean_absolute_error(y, y_pred)
+
+                # Prepare response
+                response = {
+                    'forecast_data': [{
+                        'date': date.strftime('%Y-%m-%d'),
+                        'predicted_sales': float(0 if not np.isfinite(sales) else sales)
+                    } for date, sales in zip(future_dates, predictions)],
+                    'historical_data': [{
+                        'date': date.strftime('%Y-%m-%d'),
+                        'actual_sales': float(sales),
+                        'ma7': float(ma7),
+                        'ma30': float(ma30)
+                    } for date, sales, ma7, ma30 in zip(df['date'], 
+                                                      df['actual_sales'],
+                                                      df['MA7'],
+                                                      df['MA30'])],
+                    'accuracy': {
+                        'r2_score': float(r2),
+                        'mean_absolute_error': float(mae)
+                    }
+                }
+
+                # Determine aggregation period based on forecast length
+                period = 'W' if forecast_days <= 45 else 'M'
+                
+                # Aggregate both historical and forecast data
+                aggregated_historical = aggregate_data(response['historical_data'], period)
+                aggregated_forecast = aggregate_data(response['forecast_data'], period)
+
+                response['aggregated_data'] = {
+                    'period': 'weekly' if period == 'W' else 'monthly',
+                    'historical': aggregated_historical,
+                    'forecast': aggregated_forecast
+                }
+
+                return jsonify(response)
 
         else:
-            # Use Gradient Boosting for less than 6 months of data
-            df['Year'] = df['Date'].dt.year
-            df['Month'] = df['Date'].dt.month
-            df['Day'] = df['Date'].dt.day
-            df['Weekday'] = df['Date'].dt.weekday
-            df['Week'] = df['Date'].dt.isocalendar().week
-            df['Quarter'] = df['Date'].dt.quarter
+            # For data less than or equal to 6 months, predict for 45 days
+            if time_span_months > 4:
+                forecast_days = 730
+            else:
+                forecast_days = 45
+            # Use Gradient Boosting for short-term predictions
+            df['Year'] = df['date'].dt.year
+            df['Month'] = df['date'].dt.month
+            df['Day'] = df['date'].dt.day
+            df['Weekday'] = df['date'].dt.weekday
+            df['Week'] = df['date'].dt.isocalendar().week
+            df['Quarter'] = df['date'].dt.quarter
 
             categorical_columns = [
                 "brand", "model", "vehicle_type", "fuel_type", "city", "dealer_type", 
@@ -434,8 +703,8 @@ def sales_forecast():
                 df[numerical_cols_present] = scaler.fit_transform(df[numerical_cols_present])
 
             # Add rolling averages for smoothing
-            df['MA7'] = df['quantity_sold'].rolling(window=7, min_periods=1).mean()
-            df['MA30'] = df['quantity_sold'].rolling(window=30, min_periods=1).mean()
+            df['MA7'] = df['actual_sales'].rolling(window=7, min_periods=1).mean()
+            df['MA30'] = df['actual_sales'].rolling(window=30, min_periods=1).mean()
             
             # Prepare features
             feature_columns = ['Year', 'Month', 'Day', 'Weekday', 'Week', 'Quarter']
@@ -443,7 +712,7 @@ def sales_forecast():
             feature_columns.extend([col for col in numerical_cols_present if col in df.columns])
 
             X = df[feature_columns]
-            y = df['quantity_sold']
+            y = df['actual_sales']
 
             # Train model with same parameters as notebook
             model = GradientBoostingRegressor(
@@ -455,19 +724,19 @@ def sales_forecast():
             model.fit(X, y)
 
             # Generate future dates
-            last_date = df['Date'].max()
+            last_date = df['date'].max()
             future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), 
                                        periods=forecast_days, freq='D')
 
             # Prepare future data
             future_data = pd.DataFrame()
-            future_data['Date'] = future_dates
-            future_data['Year'] = future_data['Date'].dt.year
-            future_data['Month'] = future_data['Date'].dt.month
-            future_data['Day'] = future_data['Date'].dt.day
-            future_data['Weekday'] = future_data['Date'].dt.weekday
-            future_data['Week'] = future_data['Date'].dt.isocalendar().week
-            future_data['Quarter'] = future_data['Date'].dt.quarter
+            future_data['date'] = future_dates
+            future_data['Year'] = future_data['date'].dt.year
+            future_data['Month'] = future_data['date'].dt.month
+            future_data['Day'] = future_data['date'].dt.day
+            future_data['Weekday'] = future_data['date'].dt.weekday
+            future_data['Week'] = future_data['date'].dt.isocalendar().week
+            future_data['Quarter'] = future_data['date'].dt.quarter
 
             # Copy last known values for categorical and numerical columns
             last_entry = df.iloc[-1]
@@ -491,15 +760,15 @@ def sales_forecast():
             response = {
                 'forecast_data': [{
                     'date': date.strftime('%Y-%m-%d'),
-                    'predicted_sales': float(sales)
+                    'predicted_sales': float(0 if not np.isfinite(sales) else sales)
                 } for date, sales in zip(future_dates, predictions)],
                 'historical_data': [{
                     'date': date.strftime('%Y-%m-%d'),
                     'actual_sales': float(sales),
                     'ma7': float(ma7),
                     'ma30': float(ma30)
-                } for date, sales, ma7, ma30 in zip(df['Date'], 
-                                                  df['quantity_sold'],
+                } for date, sales, ma7, ma30 in zip(df['date'], 
+                                                  df['actual_sales'],
                                                   df['MA7'],
                                                   df['MA30'])],
                 'accuracy': {
@@ -508,10 +777,23 @@ def sales_forecast():
                 }
             }
 
+            # Determine aggregation period based on forecast length
+            period = 'W' if forecast_days <= 45 else 'M'
+            
+            # Aggregate both historical and forecast data
+            aggregated_historical = aggregate_data(response['historical_data'], period)
+            aggregated_forecast = aggregate_data(response['forecast_data'], period)
+
+            response['aggregated_data'] = {
+                'period': 'weekly' if period == 'W' else 'monthly',
+                'historical': aggregated_historical,
+                'forecast': aggregated_forecast
+            }
+
             return jsonify(response)
 
     except Exception as e:
-        print(f"Forecast error: {str(e)}")
+        logging.error(f"Forecast error: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
@@ -562,7 +844,7 @@ def demand_analysis():
         })
 
     except Exception as e:
-        print(f"Demand analysis error: {str(e)}")
+        logging.error(f"Demand analysis error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sales/stockout-prediction', methods=['POST'])
@@ -641,7 +923,7 @@ def stockout_prediction():
         })
 
     except Exception as e:
-        print(f"Stockout prediction error: {str(e)}")
+        logging.error(f"Stockout prediction error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/analysis', methods=['POST'])
@@ -710,6 +992,7 @@ def analyze_sales():
         
         return jsonify(response)
     except Exception as e:
+        logging.error(f"Analysis error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # Add a test endpoint to verify the API is working
@@ -718,4 +1001,5 @@ def test():
     return jsonify({'message': 'API is working!'}), 200
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     app.run(debug=True, port=5001) 

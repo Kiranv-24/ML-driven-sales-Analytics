@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
-  TextField,
-  Typography,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  Input,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Alert,
-  AlertTitle,
-  Grid,
-  Card,
-  CardContent,
-  CircularProgress,
-  Chip,
-  Input,
+  TextField,
+  Typography,
 } from "@mui/material";
-import { useLocation, useNavigate } from "react-router-dom";
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
   LineChart,
   Line,
   XAxis,
@@ -30,10 +35,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
   ReferenceLine,
   Cell,
 } from "recharts";
@@ -96,6 +97,36 @@ const ProductAnalysisPage = () => {
     }
   };
 
+  const parseDateString = (dateStr) => {
+    // Try different date formats
+    const formats = [
+      // DD-MM-YYYY
+      (str) => {
+        const [day, month, year] = str.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      },
+      // YYYY-MM-DD
+      (str) => new Date(str),
+      // DD/MM/YYYY
+      (str) => {
+        const [day, month, year] = str.split('/').map(Number);
+        return new Date(year, month - 1, day);
+      }
+    ];
+
+    for (const format of formats) {
+      try {
+        const date = format(dateStr.trim());
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    return null;
+  };
+
   const handleCSVUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -124,11 +155,44 @@ const ProductAnalysisPage = () => {
       }
 
       const data = await response.json();
-      console.log("CSV Data:", data);
-      setSalesData(data);
+      console.log("Raw CSV Data:", data);
+
+      // Check for error in response
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Format the data for display and analysis
+      const formattedData = {
+        name: data.name || productName || "Unknown",
+        quantitySold: parseInt(data.quantitySold) || 0,
+        totalLeftInStock: parseInt(data.totalLeftInStock) || 0,
+        dailySales: Array.isArray(data.dailySales) ? data.dailySales.map(sale => ({
+          saleDate: sale.saleDate,
+          dailyQuantitySold: parseInt(sale.dailyQuantitySold) || 0,
+          Stock_on_Date: parseInt(sale.Stock_on_Date) || data.totalLeftInStock || 0
+        })).sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate)) : []
+      };
+
+      // Validate the formatted data
+      if (!formattedData.dailySales || formattedData.dailySales.length === 0) {
+        throw new Error("No valid sales data found in the CSV");
+      }
+
+      // Set the start and end dates
+      formattedData.startDate = data.startDate;
+      formattedData.endDate = data.endDate;
+      
+      setStartDate(data.startDate);
+      setEndDate(data.endDate);
+
+      console.log("Formatted Data:", formattedData);
+      setSalesData(formattedData);
+      setError("CSV file uploaded successfully!");
+      
     } catch (error) {
-      setError("Error uploading CSV: " + error.message);
       console.error("Error uploading CSV:", error);
+      setError(`Error uploading CSV: ${error.message}`);
     } finally {
       setLoading((prev) => ({
         ...prev,
@@ -138,7 +202,7 @@ const ProductAnalysisPage = () => {
   };
 
   const transformData = () => {
-    console.log("Transforming data...");
+    console.log("Transforming data for prediction...");
     console.log("Current salesData:", salesData);
 
     if (!salesData || !salesData.dailySales || salesData.dailySales.length === 0) {
@@ -146,70 +210,19 @@ const ProductAnalysisPage = () => {
       return [];
     }
 
-    const startDate = new Date(salesData.startDate);
-    const endDate = new Date(salesData.endDate);
+    // Transform data for sales prediction
+    const transformedData = salesData.dailySales.map(sale => ({
+      date: sale.saleDate,
+      quantity_sold: sale.dailyQuantitySold,
+      current_stock: sale.Stock_on_Date || salesData.totalLeftInStock
+    }));
 
-    console.log("Start Date:", startDate.toISOString().split('T')[0]);
-    console.log("End Date:", endDate.toISOString().split('T')[0]);
-
-    const sortedSales = [...salesData.dailySales].sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate));
-    const dateMap = new Map();
-
-    sortedSales.forEach(sale => {
-      const dateStr = new Date(sale.saleDate).toISOString().split('T')[0];
-      dateMap.set(dateStr, sale);
-    });
-
-    const transformedData = [];
-    let currentDate = new Date(startDate);
-    let lastKnownSale = sortedSales[0];
-
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-
-      if (dateMap.has(dateStr)) {
-        lastKnownSale = dateMap.get(dateStr);
-      }
-
-      transformedData.push({
-        date: dateStr,
-        Model: lastKnownSale.Model || "Unknown",
-        Brand: lastKnownSale.Brand || "Unknown",
-        Vehicle_Type: lastKnownSale.Vehicle_Type || "Unknown",
-        Fuel_Type: lastKnownSale.Fuel_Type || "Unknown",
-        City: lastKnownSale.City || "Unknown",
-        Dealer_Type: lastKnownSale.Dealer_Type || "Unknown",
-        Customer_Age_Group: lastKnownSale.Customer_Age_Group || "Unknown",
-        Customer_Gender: lastKnownSale.Customer_Gender || "Unknown",
-        Occupation_of_Buyer: lastKnownSale.Occupation_of_Buyer || "Unknown",
-        Payment_Mode: lastKnownSale.Payment_Mode || "Unknown",
-        Festive_Season_Purchase: lastKnownSale.Festive_Season_Purchase || "No",
-        Advertisement_Type: lastKnownSale.Advertisement_Type || "None",
-        Service_Availability: lastKnownSale.Service_Availability || "Yes",
-        Weather_Condition: lastKnownSale.Weather_Condition || "Normal",
-        Road_Conditions: lastKnownSale.Road_Conditions || "Good",
-        Engine_Capacity_CC: parseFloat(lastKnownSale.Engine_Capacity_CC) || 0,
-        Price_INR: parseFloat(lastKnownSale.Price_INR) || 0,
-        Petrol_Price_at_Purchase: parseFloat(lastKnownSale.Petrol_Price_at_Purchase) || 0,
-        Competitor_Brand_Presence: parseInt(lastKnownSale.Competitor_Brand_Presence) || 0,
-        Discounts_Offers: parseFloat(lastKnownSale.Discounts_Offers) || 0,
-        Stock_on_Date: parseInt(lastKnownSale.Stock_on_Date) || 0,
-        quantity_sold: parseInt(lastKnownSale.dailyQuantitySold) || 14,
-        current_stock: salesData.totalLeftInStock || 14
-      });
-
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    console.log("Transformed data:", transformedData);
-    console.log("Date range:", transformedData[0]?.date, "to", transformedData[transformedData.length - 1]?.date);
-    console.log("Number of records:", transformedData.length);
-
+    console.log("Transformed data for prediction:", transformedData);
     return transformedData;
   };
 
   const handleSalesPrediction = async () => {
-    if (salesData.length === 0) {
+    if (!salesData || !salesData.dailySales || salesData.dailySales.length === 0) {
       setError("Please collect sales data first");
       return;
     }
@@ -218,18 +231,16 @@ const ProductAnalysisPage = () => {
     setError("");
 
     try {
-      console.log("Checking", salesData)
       const transformedData = transformData();
       console.log("Sending data:", transformedData);
-      console.log(transformData);
+
       const response = await fetch("http://localhost:5001/api/sales/forecast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sales_data: transformedData,
           brand: productName || "Unknown",
-          model: productName || "Unknown",
-          forecast_days: 14,
+          model: productName || "Unknown"
         }),
       });
 
@@ -240,10 +251,19 @@ const ProductAnalysisPage = () => {
       const data = await response.json();
       console.log("Received forecast data:", data);
 
-      setAnalysisResults((prev) => {
-        console.log("Updating analysis results:", { ...prev, forecast: data });
-        return { ...prev, forecast: data };
-      });
+      // Calculate forecast period based on data timespan
+      const startDate = new Date(salesData.startDate);
+      const endDate = new Date(salesData.endDate);
+      const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
+      const forecastPeriod = monthsDiff > 6 ? "2 years" : "45 days";
+
+      setAnalysisResults((prev) => ({
+        ...prev,
+        forecast: {
+          ...data,
+          forecastPeriod
+        }
+      }));
     } catch (error) {
       console.error("Error in sales prediction:", error);
       setError("Sales prediction failed: " + error.message);
@@ -435,28 +455,44 @@ const ProductAnalysisPage = () => {
   };
 
   const renderSalesChart = (data) => {
-    console.log("Rendering sales chart with data:", data);
+    if (!data || !data.aggregated_data) return null;
 
-    if (!data || (!data.forecast_data && !data.historical_data)) {
-      console.log("No data available for sales chart");
-      return null;
-    }
+    const { aggregated_data } = data;
+    const isPeriodWeekly = aggregated_data.period === 'weekly';
 
-    // Format the data for the chart with default values
-    const combinedChartData = [
+    // Combine historical and forecast data
+    const chartData = [
+      ...(aggregated_data.historical || []).map(item => ({
+        date: new Date(item.date),
+        historicalTotal: item.total,
+        historicalAvg: item.average,
+        historicalLower: item.lower,
+        historicalUpper: item.upper,
+        historicalGrowth: item.growth_rate
+      })),
+      ...(aggregated_data.forecast || []).map(item => ({
+        date: new Date(item.date),
+        forecastTotal: item.total,
+        forecastAvg: item.average,
+        forecastLower: item.lower,
+        forecastUpper: item.upper,
+        forecastGrowth: item.growth_rate
+      }))
+    ].sort((a, b) => a.date - b.date);
+
+    // Prepare data for the table
+    const tableData = [
       ...(data.historical_data || []).map((item) => ({
         date: item.date,
-        historical: item.actual_sales || 14,
-        forecast: null
+        value: item.actual_sales,
+        type: 'Historical'
       })),
       ...(data.forecast_data || []).map((item) => ({
         date: item.date,
-        historical: null,
-        forecast: item.predicted_sales || 14
-      })),
-    ];
-
-    console.log("Combined chart data:", combinedChartData);
+        value: item.predicted_sales,
+        type: 'Forecast'
+      }))
+    ].sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return (
       <Box sx={{ width: "100%", mt: 3 }}>
@@ -480,9 +516,42 @@ const ProductAnalysisPage = () => {
                 mb: 3
               }}
             >
-              Sales Forecast Analysis
+              Sales Forecast Analysis ({isPeriodWeekly ? 'Weekly' : 'Monthly'} View)
             </Typography>
 
+            {/* CSV Upload Section */}
+            <Box sx={{ mb: 4 }}>
+              <input
+                accept=".csv"
+                style={{ display: 'none' }}
+                id="raised-button-file"
+                type="file"
+                onChange={handleCSVUpload}
+              />
+              <label htmlFor="raised-button-file">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={<CloudUploadIcon />}
+                  sx={{
+                    background: 'linear-gradient(45deg, #4fc3f7 30%, #03a9f4 90%)',
+                    borderRadius: '20px',
+                    boxShadow: '0 3px 5px 2px rgba(79, 195, 247, .3)',
+                    color: 'white',
+                    height: 48,
+                    padding: '0 30px',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #03a9f4 30%, #4fc3f7 90%)',
+                      transform: 'scale(1.02)'
+                    }
+                  }}
+                >
+                  Upload CSV
+                </Button>
+              </label>
+            </Box>
+
+            {/* Chart Section */}
             <Box sx={{ 
               height: 500, 
               width: "100%",
@@ -492,28 +561,54 @@ const ProductAnalysisPage = () => {
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
             }}>
               <ResponsiveContainer>
-                <LineChart data={combinedChartData}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
                   <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(str) => new Date(str).toLocaleDateString()}
+                    dataKey="date"
+                    tickFormatter={(date) => {
+                      if (isPeriodWeekly) {
+                        return `Week ${date.getDate()}/${date.getMonth() + 1}`;
+                      }
+                      return date.toLocaleString('default', { month: 'short', year: 'numeric' });
+                    }}
                     stroke="#fff"
                     tick={{ fill: '#fff', fontSize: 12 }}
-                    label={{ value: 'Date', position: 'bottom', fill: '#fff', offset: 0 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
                   />
                   <YAxis 
+                    yAxisId="left"
                     stroke="#fff"
                     tick={{ fill: '#fff', fontSize: 12 }}
                     label={{ value: 'Sales (units)', angle: -90, position: 'insideLeft', fill: '#fff', offset: 10 }}
                   />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#ff9800"
+                    tick={{ fill: '#ff9800', fontSize: 12 }}
+                    label={{ value: 'Growth Rate (%)', angle: 90, position: 'insideRight', fill: '#ff9800', offset: 10 }}
+                    domain={['auto', 'auto']}
+                  />
                   <Tooltip 
-                    labelFormatter={(str) => new Date(str).toLocaleDateString()}
-                    formatter={(value) => [`${value} units`]}
+                    labelFormatter={(date) => {
+                      if (isPeriodWeekly) {
+                        return `Week of ${date.toLocaleDateString()}`;
+                      }
+                      return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    }}
                     contentStyle={{
                       borderRadius: '8px',
                       backgroundColor: '#1a1a1a',
                       border: '1px solid #404040',
                       color: '#fff'
+                    }}
+                    formatter={(value, name) => {
+                      if (name.includes('Growth')) {
+                        return [`${value.toFixed(1)}%`, name];
+                      }
+                      return [value.toFixed(2), name];
                     }}
                   />
                   <Legend 
@@ -522,33 +617,93 @@ const ProductAnalysisPage = () => {
                       color: '#fff'
                     }}
                   />
-                  <Line
+                  {/* Historical Data */}
+                  <Area
+                    yAxisId="left"
                     type="monotone"
-                    dataKey="historical"
+                    dataKey="historicalTotal"
                     stroke="#4fc3f7"
-                    name="Historical Sales"
-                    dot={{ stroke: '#4fc3f7', strokeWidth: 2, r: 4 }}
-                    strokeWidth={2}
-                    connectNulls={false}
-                    isAnimationActive={true}
-                    animationDuration={1500}
+                    fill="#4fc3f7"
+                    fillOpacity={0.1}
+                    name="Historical Total"
+                    connectNulls
                   />
                   <Line
+                    yAxisId="left"
                     type="monotone"
-                    dataKey="forecast"
+                    dataKey="historicalAvg"
+                    stroke="#4fc3f7"
+                    name="Historical Average"
+                    dot={{ stroke: '#4fc3f7', strokeWidth: 2, r: 4 }}
+                    strokeWidth={2}
+                    connectNulls
+                  />
+                  {/* <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="historicalGrowth"
+                    stroke="#ff9800"
+                    name="Historical Growth %"
+                    dot={{ stroke: '#ff9800', strokeWidth: 2, r: 4 }}
+                    strokeWidth={2}
+                  /> */}
+                  {/* Forecast Data */}
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="forecastTotal"
                     stroke="#f06292"
-                    name="Forecasted Sales"
+                    fill="#f06292"
+                    fillOpacity={0.1}
+                    name="Forecast Total"
+                    connectNulls
+                    strokeDasharray="5 5"
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="forecastAvg"
+                    stroke="#f06292"
+                    name="Forecast Average"
                     dot={{ stroke: '#f06292', strokeWidth: 2, r: 4 }}
                     strokeWidth={2}
-                    connectNulls={false}
-                    isAnimationActive={true}
-                    animationDuration={1500}
+                    connectNulls
                     strokeDasharray="5 5"
+                  />
+                  {/* <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="forecastGrowth"
+                    stroke="#ff9800"
+                    name="Forecast Growth %"
+                    dot={{ stroke: '#ff9800', strokeWidth: 2, r: 4 }}
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                  /> */}
+                  {/* Confidence Intervals */}
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="historicalUpper"
+                    stroke="transparent"
+                    fill="#4fc3f7"
+                    fillOpacity={0.1}
+                    name="Historical Confidence"
+                  />
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="forecastUpper"
+                    stroke="transparent"
+                    fill="#f06292"
+                    fillOpacity={0.1}
+                    name="Forecast Confidence"
                   />
                 </LineChart>
               </ResponsiveContainer>
             </Box>
 
+            {/* Statistics Chips */}
             <Box sx={{ 
               mt: 3, 
               display: "flex", 
@@ -557,7 +712,7 @@ const ProductAnalysisPage = () => {
               justifyContent: "center"
             }}>
               <Chip
-                label={`Historical Data Points: ${data.historical_data?.length || 0}`}
+                label={`${isPeriodWeekly ? 'Weekly' : 'Monthly'} Historical Data`}
                 sx={{
                   borderRadius: '16px',
                   backgroundColor: '#4fc3f7',
@@ -568,7 +723,7 @@ const ProductAnalysisPage = () => {
                 }}
               />
               <Chip
-                label={`Forecast Data Points: ${data.forecast_data?.length || 0}`}
+                label={`${isPeriodWeekly ? 'Weekly' : 'Monthly'} Forecast`}
                 sx={{
                   borderRadius: '16px',
                   backgroundColor: '#f06292',
@@ -580,7 +735,7 @@ const ProductAnalysisPage = () => {
               />
             </Box>
 
-            {/* Sales Prediction Table */}
+            {/* Data Table */}
             <TableContainer 
               component={Paper} 
               sx={{ 
@@ -607,18 +762,18 @@ const ProductAnalysisPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {combinedChartData.map((row, index) => (
+                  {tableData.map((row, index) => (
                     <TableRow key={index}>
                       <TableCell>{new Date(row.date).toLocaleDateString()}</TableCell>
-                      <TableCell align="right">{row.historical || row.forecast}</TableCell>
+                      <TableCell align="right">{row.value?.toFixed(2)}</TableCell>
                       <TableCell 
                         align="right"
                         sx={{
-                          color: row.historical !== null ? '#4fc3f7' : '#f06292',
+                          color: row.type === 'Historical' ? '#4fc3f7' : '#f06292',
                           fontWeight: 600
                         }}
                       >
-                        {row.historical !== null ? "Historical" : "Forecast"}
+                        {row.type}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -674,7 +829,7 @@ const ProductAnalysisPage = () => {
           borderRadius: '12px',
           boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
         }}>
-          <ResponsiveContainer>
+         <ResponsiveContainer>
             <LineChart
               data={chartData}
               margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
@@ -751,7 +906,7 @@ const ProductAnalysisPage = () => {
             label={`Average Sales: ${data.statistics.avg_sales.toFixed(1)} units/day`}
             sx={{
               borderRadius: '16px',
-              backgroundColor: '#4fc3f7',
+              backgroundColor: '#2196f3',
               color: '#000',
               '& .MuiChip-label': { fontWeight: 500 }
             }}
@@ -907,7 +1062,7 @@ const ProductAnalysisPage = () => {
             <Grid item xs={12} md={6}>
               <Card sx={{ backgroundColor: '#2d2d2d', color: '#fff' }}>
                 <CardContent>
-                  <Typography variant="subtitle1" sx={{ color: '#4fc3f7' }} gutterBottom>
+                  <Typography variant="subtitle1" sx={{ color: '#2196f3' }} gutterBottom>
                     Current Status
                   </Typography>
                   <Typography variant="body2" gutterBottom>
@@ -983,14 +1138,68 @@ const ProductAnalysisPage = () => {
     );
   };
 
-  const renderDailySalesGraph = () => {
-    if (!salesData || !salesData.dailySales) return null;
+  const calculateMonthlyGrowthRates = (data, isPrediction = false) => {
+    if (!data || data.length < 2) return [];
+    
+    // Group sales by month
+    const monthlyData = data.reduce((acc, sale) => {
+      const date = new Date(isPrediction ? sale.date : sale.saleDate);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!acc[monthKey]) {
+        acc[monthKey] = {
+          totalSales: 0,
+          count: 0,
+          month: date
+        };
+      }
+      
+      acc[monthKey].totalSales += isPrediction ? sale.predicted_sales : sale.dailyQuantitySold;
+      acc[monthKey].count += 1;
+      return acc;
+    }, {});
 
-    // Add default value of 14 for zero values
-    const modifiedSalesData = salesData.dailySales.map((sale) => ({
-      ...sale,
-      dailyQuantitySold: sale.dailyQuantitySold || 14, // Default to 14 if zero
+    // Calculate monthly averages and growth rates
+    const monthlyAverages = Object.entries(monthlyData)
+      .map(([key, data]) => ({
+        date: data.month,
+        averageSales: data.totalSales / data.count
+      }))
+      .sort((a, b) => a.date - b.date);
+
+    // Calculate growth rates
+    const growthRates = [];
+    for (let i = 1; i < monthlyAverages.length; i++) {
+      const previousMonth = monthlyAverages[i - 1].averageSales;
+      const currentMonth = monthlyAverages[i].averageSales;
+      const growthRate = previousMonth === 0 ? 0 : ((currentMonth - previousMonth) / previousMonth) * 100;
+      
+      growthRates.push({
+        date: monthlyAverages[i].date,
+        growthRate: parseFloat(growthRate.toFixed(1))
+      });
+    }
+    
+    return growthRates;
+  };
+
+  const renderSalesPredictionGraph = () => {
+    if (!analysisResults.forecast || !analysisResults.forecast.predictions) return null;
+
+    // Combine historical and predicted data
+    const historicalData = salesData.dailySales.map(sale => ({
+      date: sale.saleDate,
+      value: sale.dailyQuantitySold,
+      type: 'historical'
     }));
+
+    const predictedData = analysisResults.forecast.predictions.map(pred => ({
+      date: pred.date,
+      value: pred.predicted_sales,
+      type: 'predicted'
+    }));
+
+    const combinedData = [...historicalData, ...predictedData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return (
       <Card sx={{ 
@@ -1011,7 +1220,7 @@ const ProductAnalysisPage = () => {
               mb: 3
             }}
           >
-            Historical Daily Sales
+            Sales Prediction
           </Typography>
           <Box sx={{ 
             height: 300,
@@ -1022,20 +1231,32 @@ const ProductAnalysisPage = () => {
             boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
           }}>
             <ResponsiveContainer>
-              <BarChart data={modifiedSalesData}>
+              <LineChart data={combinedData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
                 <XAxis
-                  dataKey="saleDate"
-                  tickFormatter={(str) => new Date(str).toLocaleDateString()}
+                  dataKey="date"
+                  tickFormatter={(str) => {
+                    const date = new Date(str);
+                    return `${date.getDate()}/${date.getMonth() + 1}`;
+                  }}
                   stroke="#fff"
                   tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={Math.ceil(combinedData.length / 10)}
                 />
-                <YAxis 
+                <YAxis
                   stroke="#fff"
                   tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Sales (units)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
                 />
                 <Tooltip
                   labelFormatter={(str) => new Date(str).toLocaleDateString()}
+                  formatter={(value, name) => [Math.round(value), name === 'historical' ? 'Historical Sales' : 'Predicted Sales']}
                   contentStyle={{
                     backgroundColor: '#1a1a1a',
                     border: '1px solid #404040',
@@ -1043,33 +1264,291 @@ const ProductAnalysisPage = () => {
                     color: '#fff'
                   }}
                 />
-                <Bar
-                  dataKey="dailyQuantitySold"
-                  fill="#4fc3f7"
-                  name="Daily Sales"
-                >
-                  {salesData.dailySales.map((entry, index) => (
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#2196f3"
+                  name="historical"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#ff9800"
+                  name="predicted"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderHistoricalGrowthRateGraph = () => {
+    if (!salesData || !salesData.dailySales) return null;
+
+    const growthRates = calculateMonthlyGrowthRates(salesData.dailySales);
+    if (growthRates.length === 0) return null;
+
+    return (
+      <Card sx={{ 
+        mt: 2, 
+        mb: 2,
+        borderRadius: '16px',
+        background: '#1a1a1a',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <CardContent>
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Historical Monthly Growth Rate
+          </Typography>
+          <Box sx={{ 
+            height: 300,
+            width: "100%",
+            p: 2,
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            <ResponsiveContainer>
+              <BarChart data={growthRates}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
+                  }}
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Growth Rate (%)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
+                  domain={[-100, 100]}
+                  ticks={[-100, -50, 0, 50, 100]}
+                />
+                <Tooltip
+                  labelFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+                  }}
+                  formatter={(value) => [`${value}%`, 'Growth Rate']}
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid #404040',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
+                <Bar dataKey="growthRate" name="Growth Rate">
+                  {growthRates.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`}
-                      fill={`url(#colorGradient-${index})`}
+                      fill={entry.growthRate >= 0 ? '#4caf50' : '#f44336'}
                     />
                   ))}
                 </Bar>
-                <defs>
-                  {salesData.dailySales.map((entry, index) => (
-                    <linearGradient
-                      key={`gradient-${index}`}
-                      id={`colorGradient-${index}`}
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#4fc3f7" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#03a9f4" stopOpacity={0.6} />
-                    </linearGradient>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderPredictedGrowthRateGraph = () => {
+    if (!analysisResults.forecast || !analysisResults.forecast.predictions) return null;
+
+    const growthRates = calculateMonthlyGrowthRates(analysisResults.forecast.predictions, true);
+    if (growthRates.length === 0) return null;
+
+    return (
+      <Card sx={{ 
+        mt: 2, 
+        mb: 2,
+        borderRadius: '16px',
+        background: '#1a1a1a',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <CardContent>
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Predicted Monthly Growth Rate
+          </Typography>
+          <Box sx={{ 
+            height: 300,
+            width: "100%",
+            p: 2,
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            <ResponsiveContainer>
+              <BarChart data={growthRates}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
+                  }}
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Growth Rate (%)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
+                  domain={[-100, 100]}
+                  ticks={[-100, -50, 0, 50, 100]}
+                />
+                <Tooltip
+                  labelFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+                  }}
+                  formatter={(value) => [`${value}%`, 'Growth Rate']}
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid #404040',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
+                <Bar dataKey="growthRate" name="Growth Rate">
+                  {growthRates.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`}
+                      fill={entry.growthRate >= 0 ? '#ff9800' : '#e65100'}
+                    />
                   ))}
-                </defs>
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSalesGraph = () => {
+    if (!salesData || !salesData.dailySales) return null;
+
+    return (
+      <Card sx={{ 
+        mt: 2, 
+        mb: 2,
+        borderRadius: '16px',
+        background: '#1a1a1a',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <CardContent>
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Daily Sales Analysis
+          </Typography>
+          <Box sx={{ 
+            height: 300,
+            width: "100%",
+            p: 2,
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            <ResponsiveContainer>
+              <BarChart data={salesData.dailySales}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                <XAxis
+                  dataKey="saleDate"
+                  tickFormatter={(str) => {
+                    const date = new Date(str);
+                    return `${date.getDate()}/${date.getMonth() + 1}`;
+                  }}
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={Math.ceil(salesData.dailySales.length / 10)}
+                />
+                <YAxis 
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Daily Sales (units)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
+                />
+                <Tooltip
+                  labelFormatter={(str) => new Date(str).toLocaleDateString()}
+                  formatter={(value) => [value, 'Sales']}
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid #404040',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <Bar 
+                  dataKey="dailyQuantitySold" 
+                  name="Sales"
+                  fill="#2196f3"
+                />
               </BarChart>
             </ResponsiveContainer>
           </Box>
@@ -1103,7 +1582,7 @@ const ProductAnalysisPage = () => {
           '& .MuiTableHead-root': {
             background: 'linear-gradient(45deg, #2d2d2d 30%, #404040 90%)',
             '& .MuiTableCell-head': {
-              color: '#4fc3f7',
+              color: '#2196f3',
               fontWeight: 600,
               letterSpacing: '0.5px',
               textTransform: 'uppercase',
@@ -1147,6 +1626,193 @@ const ProductAnalysisPage = () => {
           </TableBody>
         </Table>
       </TableContainer>
+    );
+  };
+
+  const renderDailySalesGraph = () => {
+    if (!salesData || !salesData.dailySales) return null;
+
+    return (
+      <Card sx={{ 
+        mt: 2, 
+        mb: 2,
+        borderRadius: '16px',
+        background: '#1a1a1a',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <CardContent>
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Daily Sales
+          </Typography>
+          <Box sx={{ 
+            height: 300,
+            width: "100%",
+            p: 2,
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            <ResponsiveContainer>
+              <LineChart data={salesData.dailySales}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                <XAxis
+                  dataKey="saleDate"
+                  tickFormatter={(str) => {
+                    const date = new Date(str);
+                    return `${date.getDate()}/${date.getMonth() + 1}`;
+                  }}
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={Math.ceil(salesData.dailySales.length / 10)}
+                />
+                <YAxis 
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Daily Sales (units)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
+                />
+                <Tooltip
+                  labelFormatter={(str) => new Date(str).toLocaleDateString()}
+                  formatter={(value) => [value, 'Sales']}
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid #404040',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="dailyQuantitySold"
+                  stroke="#2196f3"
+                  name="Sales"
+                  dot={false}
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderGrowthRateGraph = () => {
+    if (!salesData || !salesData.dailySales) return null;
+
+    const growthRates = calculateMonthlyGrowthRates(salesData.dailySales);
+    if (growthRates.length === 0) return null;
+
+    return (
+      <Card sx={{ 
+        mt: 2, 
+        mb: 2,
+        borderRadius: '16px',
+        background: '#1a1a1a',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <CardContent>
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Monthly Sales Growth Rate
+          </Typography>
+          <Box sx={{ 
+            height: 300,
+            width: "100%",
+            p: 2,
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            <ResponsiveContainer>
+              <BarChart data={growthRates}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
+                  }}
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#fff"
+                  tick={{ fill: '#fff', fontSize: 12 }}
+                  label={{ 
+                    value: 'Growth Rate (%)', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: '#fff',
+                    style: { textAnchor: 'middle' }
+                  }}
+                  domain={[-100, 100]}
+                  ticks={[-100, -50, 0, 50, 100]}
+                />
+                <Tooltip
+                  labelFormatter={(date) => {
+                    const d = new Date(date);
+                    return `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+                  }}
+                  formatter={(value) => [`${value}%`, 'Growth Rate']}
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid #404040',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
+                <Bar dataKey="growthRate" name="Growth Rate">
+                  {growthRates.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`}
+                      fill={entry.growthRate >= 0 ? '#4caf50' : '#f44336'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: '#999', 
+              mt: 2, 
+              textAlign: 'center',
+              fontSize: '0.8rem'
+            }}
+          >
+            *Growth rate shows month-over-month change in average daily sales
+          </Typography>
+        </CardContent>
+      </Card>
     );
   };
 
@@ -1209,7 +1875,7 @@ const ProductAnalysisPage = () => {
               borderColor: 'rgba(255,255,255,0.1)',
             },
             '&:hover fieldset': {
-              borderColor: '#4fc3f7',
+              borderColor: '#2196f3',
             },
             '& input': {
               color: '#fff'
@@ -1244,7 +1910,7 @@ const ProductAnalysisPage = () => {
             !endDate
           }
           sx={{
-            background: 'linear-gradient(45deg, #4fc3f7 30%, #03a9f4 90%)',
+            background: 'linear-gradient(45deg, #2196f3 30%, #03a9f4 90%)',
             color: '#fff',
             padding: '10px 24px',
             fontSize: '1rem',
@@ -1277,9 +1943,9 @@ const ProductAnalysisPage = () => {
         </Button>
       </Box>
 
-      <Box sx={{ 
-        display: "flex", 
-        gap: 2, 
+      <Box sx={{
+        display: "flex",
+        gap: 2,
         mb: 3,
         flexWrap: "wrap",
         justifyContent: "center"
@@ -1293,10 +1959,10 @@ const ProductAnalysisPage = () => {
           disabled={loading.forecast || !salesData || !salesData.dailySales}
           sx={{
             background: activeTab === 0 
-              ? 'linear-gradient(45deg, #4fc3f7 30%, #03a9f4 90%)'
+              ? 'linear-gradient(45deg, #2196f3 30%, #03a9f4 90%)'
               : 'transparent',
-            color: activeTab === 0 ? '#fff' : '#4fc3f7',
-            border: '1px solid #4fc3f7',
+            color: activeTab === 0 ? '#fff' : '#2196f3',
+            border: '1px solid #2196f3',
             padding: '10px 24px',
             borderRadius: '12px',
             fontSize: '1rem',
@@ -1315,7 +1981,7 @@ const ProductAnalysisPage = () => {
         >
           {loading.forecast ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={20} sx={{ color: activeTab === 0 ? '#fff' : '#4fc3f7' }} />
+              <CircularProgress size={20} sx={{ color: activeTab === 0 ? '#fff' : '#2196f3' }} />
               <span>Predicting...</span>
             </Box>
           ) : (
@@ -1434,7 +2100,11 @@ const ProductAnalysisPage = () => {
 
       {salesData && renderSalesDetailsTable()}
 
-      {salesData && renderDailySalesGraph()}
+      {salesData && renderSalesGraph()}
+
+      {salesData && renderGrowthRateGraph()}
+
+      {salesData && renderSalesPredictionGraph()}
 
       {/* Analysis Results */}
       {salesData && (
